@@ -415,6 +415,18 @@ def admin_api_city(country, region, city):
 
 
 # ==== Task 9: Home — map, year strip and list
+from map import unmapped_count, venue_points  # noqa: E402
+
+
+@app.get("/api/map")
+@public_read
+def api_map():
+    """{"points": [...], "unmapped": n} for attended shows, optionally ?year=YYYY."""
+    year = request.args.get("year", "").strip()
+    if year and not (year.isdigit() and len(year) == 4):
+        raise ApiError(400, "year must be four digits")
+    year = int(year) if year else None
+    return jsonify({"points": venue_points(db(), year=year), "unmapped": unmapped_count(db(), year=year)})
 
 
 # ==== Task 10: Stats
