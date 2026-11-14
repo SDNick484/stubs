@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 3.
+**Status:** Built: Task 1, 2, 3.
 
 ## Commands
 
@@ -75,6 +75,8 @@ db.py             SCHEMA (v1, spec section 5), SCHEMA_VERSION, connect(), transa
 common.py         ApiError, json_body, text, norm, venue_norm, parse_date, period_end, today
 csvimport.py      parse_csv(bytes) -> Proposals (UTF-8/BOM or cp1252, any CRLF), split_billing, parse_city, US_STATES,
                   CA_PROVINCES (spec 7.3 step 1); tests/fixtures/concerts.csv is its invented sample, reused by Task 4
+records.py        write-side core taking a Connection: resolve_artist, get_or_create_artist/venue/run, find_venue,
+                  create_show, add_lineup_entry, add_source, delete_show (unlinks image files). Bad input is ApiError
 static/           index.html (the shell; / and /admin fill in __APP_NAME__), style.css (markers `/* ==== Task N */`),
                   manifest.json (GET /manifest.json sets name and short_name), icon.svg, robots.txt
 static/js/        hash-routed ES modules, no build step: main.js (router, header, document.title; route(),
