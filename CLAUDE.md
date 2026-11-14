@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3, 4, 6, 10, 12, 13, 14, 15, 16, 17, 18.
+**Status:** Built: Task 1, 2, 3, 4, 6, 7, 10, 12, 13, 14, 15, 16, 17, 18.
 
 ## Commands
 
@@ -116,6 +116,7 @@ static/js/        hash-routed ES modules, no build step: main.js (router, header
   confirm.js      #/admin/confirm and the To confirm admin card (order 20): renderConfirmItem, renderConfirmPage,
                   renderConfirmCard
   didyougo.js     the "Did you go?" (order 10) and "Coming up" (order 15) admin cards: renderDue, renderUpcoming
+  show.js         #/show/<id>: renderLineup, renderSources, renderShow, drawPanels (each panel isolated), renderShowPage
 static/vendor/    pinned third-party files (README.md lists them); exempt from the static/js/ rules
 tests/            conftest.py + one test file per module; test_privacy.py (public walk), test_hygiene.py,
                   test_frontend.py (shell, CSP and escaping scans), test_installer_static.py, test_shell_ui.py

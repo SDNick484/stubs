@@ -60,6 +60,8 @@ headerLink("#/admin", "Admin", { editorOnly: true, order: 90 });
 
 
 // ==== Task 7: Show page
+import { renderShowPage } from "./show.js";
+route("show/:id", renderShowPage);
 
 
 // ==== Task 8: Artist, venue, year and city pages
