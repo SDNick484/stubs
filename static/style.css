@@ -146,6 +146,10 @@ main { max-width: 960px; margin: 0 auto; padding: 0 var(--s4) var(--s5); }
 
 
 /* ==== Task 8: Artist, venue, year and city pages */
+.summary { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s2); margin: 0 0 var(--s3); color: var(--ink-2); }
+.summary > span + span::before { content: "\00b7"; margin-right: var(--s2); }
+.role-counts { list-style: none; display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin: 0 0 var(--s4); padding: 0; }
+.aka { margin: 0 0 var(--s3); }
 
 
 /* ==== Task 9: Home — map, year strip and list */
