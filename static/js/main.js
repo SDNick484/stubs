@@ -102,6 +102,7 @@ registerAdminCard("Not on the map", { order: 40, render: renderMissingCard });
 
 
 // ==== Task 18: setlist.fm panel
+import "./setlist.js"; // registers the Setlist show panel (order 20)
 
 
 // ==== Task 19: Fetch from a URL

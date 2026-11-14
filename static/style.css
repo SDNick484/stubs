@@ -190,6 +190,13 @@ main { max-width: 960px; margin: 0 auto; padding: 0 var(--s4) var(--s5); }
 
 
 /* ==== Task 18: setlist.fm panel */
+.setlist-set-name { margin: var(--s3) 0 var(--s1); font-size: var(--fs-md); color: var(--ink-2); }
+.setlist-set.is-encore .setlist-set-name { color: var(--accent); }
+.setlist-songs { margin: 0 0 var(--s2); padding-left: var(--s5); }
+.setlist-credit { margin-top: var(--s2); }
+.setlist-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.setlist-results { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.setlist-result { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2); }
 
 
 /* ==== Task 19: Fetch from a URL */

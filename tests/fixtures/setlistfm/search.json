@@ -1,0 +1,33 @@
+{
+  "type": "setlists",
+  "itemsPerPage": 20,
+  "page": 1,
+  "total": 2,
+  "setlist": [
+    {
+      "id": "63ab1c4e",
+      "versionId": "g3b5c1e9",
+      "eventDate": "19-07-2025",
+      "lastUpdated": "2025-07-20T04:12:33.000+0000",
+      "artist": {"mbid": "00000000-0000-4000-8000-000000000001", "name": "The Paper Lanterns", "sortName": "Paper Lanterns, The"},
+      "venue": {"id": "3bd4a2f1", "name": "Granite Hall",
+                "city": {"id": "5391959", "name": "Oakland", "state": "California", "stateCode": "CA",
+                         "country": {"code": "US", "name": "United States"}}},
+      "sets": {"set": [
+        {"song": [{"name": "Lantern Light"}, {"name": "Slow Harbor"}]},
+        {"encore": 1, "song": [{"name": "Last Match"}]}
+      ]},
+      "url": "https://www.setlist.fm/setlist/the-paper-lanterns/2025/granite-hall-oakland-ca-63ab1c4e.html"
+    },
+    {
+      "id": "73cd2d5f",
+      "eventDate": "19-07-2025",
+      "artist": {"mbid": "00000000-0000-4000-8000-000000000001", "name": "The Paper Lanterns"},
+      "venue": {"id": "4ce5b3a2", "name": "Summit Pavilion",
+                "city": {"id": "5389489", "name": "Concord", "state": "California", "stateCode": "CA",
+                         "country": {"code": "US", "name": "United States"}}},
+      "sets": {"set": []},
+      "url": "https://www.setlist.fm/setlist/the-paper-lanterns/2025/summit-pavilion-concord-ca-73cd2d5f.html"
+    }
+  ]
+}
