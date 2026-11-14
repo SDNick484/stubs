@@ -1,0 +1,57 @@
+#!/bin/sh
+# Nightly backup of Stubs (installed to /etc/periodic/daily by setup-stubs.sh):
+#   $BACKUP_DIR/<date>/stubs.db.gz        the database (sqlite3 .backup, integrity-checked)
+#   $BACKUP_DIR/<date>/stubs-images.tar.gz  uploaded posters, photos and stubs: they can't be fetched again
+# Kept KEEP_DAYS days, mode 0600 in a 0700 directory: the database holds companions and notes.
+# If /etc/conf.d/ops sets BACKUP_TARGET (a mounted directory), each night's copies also go there.
+# DATA_DIR, BACKUP_DIR, KEEP_DAYS, OPS_CONF and LOG may be overridden for a test run.
+set -u
+umask 077
+OPS_CONF=${OPS_CONF:-/etc/conf.d/ops}
+# shellcheck disable=SC1090  # the ops config is the host's, not part of this repo
+[ -f "$OPS_CONF" ] && . "$OPS_CONF"
+DATA_DIR=${DATA_DIR:-/var/lib/stubs}
+BACKUP_DIR=${BACKUP_DIR:-/var/backups/stubs}
+KEEP_DAYS=${KEEP_DAYS:-14}
+BACKUP_TARGET=${BACKUP_TARGET:-}
+LOG=${LOG:-/var/log/stubs-backup.log}
+DB=$DATA_DIR/stubs.db
+STAMP=$(date +%Y-%m-%d)
+OUT_DIR=$BACKUP_DIR/$STAMP
+log() { echo "$(date '+%F %T') stubs-backup: $*" >> "$LOG" 2>/dev/null || true; }
+
+[ -f "$DB" ] || { log "no database at $DB yet, nothing to back up"; exit 0; }
+fail=0
+mkdir -p "$OUT_DIR" && chmod 700 "$BACKUP_DIR" "$OUT_DIR"
+out=$OUT_DIR/stubs.db
+rm -f "$out" "$out.gz"
+if sqlite3 "$DB" ".backup '$out'" && [ "$(sqlite3 "$out" 'PRAGMA integrity_check;')" = "ok" ]; then
+  gzip -f "$out"
+  log "ok database ($(du -h "$out.gz" | cut -f1))"
+else
+  rm -f "$out"
+  log "FAILED database"; fail=1
+fi
+if [ -d "$DATA_DIR/images" ] && [ -n "$(ls -A "$DATA_DIR/images" 2>/dev/null)" ]; then
+  if tar -czf "$OUT_DIR/stubs-images.tar.gz" -C "$DATA_DIR" images; then
+    log "ok images ($(du -h "$OUT_DIR/stubs-images.tar.gz" | cut -f1))"
+  else
+    log "FAILED images"; fail=1
+  fi
+fi
+find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -mtime +"$KEEP_DAYS" -exec rm -rf {} + 2>/dev/null
+
+if [ -n "$BACKUP_TARGET" ]; then
+  if [ -d "$BACKUP_TARGET" ] && [ -w "$BACKUP_TARGET" ]; then
+    mkdir -p "$BACKUP_TARGET/stubs/$STAMP"
+    cp -a "$OUT_DIR/." "$BACKUP_TARGET/stubs/$STAMP/" || fail=1
+    log "copied to $BACKUP_TARGET/stubs/$STAMP"
+  else
+    log "FAILED: BACKUP_TARGET $BACKUP_TARGET is not a writable directory (is it mounted?)"; fail=1
+  fi
+fi
+
+if [ "$fail" != 0 ] && [ -x /usr/local/bin/ops-notify ]; then
+  /usr/local/bin/ops-notify "Stubs backup" down "Last night's Stubs backup had a problem. See $LOG."
+fi
+exit "$fail"
