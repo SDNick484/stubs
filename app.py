@@ -440,6 +440,70 @@ def api_stats():
 
 
 # ==== Task 11: Show editing
+# Writes behind the edit form (spec 7.8): create, edit (fields and lineup, each checked against the show's version),
+# sources, delete, and the run names the form offers. Edits answer with the show as GET /admin/api/shows/<id> gives
+# it, so the form picks up the new version and lineup ids without another request.
+import editing  # noqa: E402
+from browse import show_detail as _t11_show_detail  # noqa: E402
+
+
+def _t11_detail(show_id):
+    return jsonify(_t11_show_detail(db(), show_id, editor=True))
+
+
+@app.post("/admin/api/shows")
+@editor_required
+def edit_create_show():
+    """{billing, date, status?, venue_id | venue + city (+ region, country), venue_label?, run?, tour?, notes?,
+    rating?, confidence?, confidence_note?, lineup?} -> 201 {"id"}."""
+    return jsonify(id=editing.create(db(), json_body())), 201
+
+
+@app.patch("/admin/api/shows/<int:show_id>")
+@editor_required
+def edit_update_show(show_id):
+    """{version, ...fields} -> the show (editor view) with its new version. A stale version is 409."""
+    data = json_body()
+    version = data.pop("version", None)
+    editing.update_show(db(), show_id, data, version)
+    return _t11_detail(show_id)
+
+
+@app.put("/admin/api/shows/<int:show_id>/lineup")
+@editor_required
+def edit_set_lineup(show_id):
+    """{version, lineup: [{id?, name, role, confidence?, confidence_note?, rating?}]} -> the show. Stale is 409."""
+    data = json_body()
+    editing.set_lineup(db(), show_id, data.get("lineup"), data.get("version"))
+    return _t11_detail(show_id)
+
+
+@app.delete("/admin/api/shows/<int:show_id>")
+@editor_required
+def edit_delete_show(show_id):
+    editing.delete(db(), show_id)
+    return jsonify(ok=True)
+
+
+@app.post("/admin/api/shows/<int:show_id>/sources")
+@editor_required
+def edit_add_source(show_id):
+    """{label, url?, lineup_id?} -> 201 {"id", "label", "url", "lineup_id"}."""
+    return jsonify(editing.add_show_source(db(), show_id, json_body())), 201
+
+
+@app.delete("/admin/api/sources/<int:source_id>")
+@editor_required
+def edit_remove_source(source_id):
+    editing.remove_source(db(), source_id)
+    return jsonify(ok=True)
+
+
+@app.get("/admin/api/runs")
+@editor_required
+def edit_runs():
+    """[{"id", "name", "shows"}] by name, for the edit form's run suggestions."""
+    return jsonify(editing.list_runs(db()))
 
 
 # ==== Task 12: Companions

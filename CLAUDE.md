@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19.
+**Status:** Built: Task 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19.
 
 ## Commands
 
@@ -107,6 +107,9 @@ fetchurl.py       fetch from a URL (spec 7.12) behind the SSRF guard: check_host
                   inet_aton spellings and IPv4-in-IPv6 unmasked), safe_fetch (http.client pinned to the checked
                   address, 5 redirects each re-checked, 5 s, 2 MB), extract (og:image, og:title, JSON-LD Event),
                   suggestions, apply (poster, performer, source). Routes in app.py; tests patch _open and getaddrinfo
+editing.py        show editing (Task 11): create, update_show (version-checked, 409 STALE), set_lineup, delete,
+                  add_show_source, remove_source, list_runs; routes in app.py (POST/PATCH/DELETE
+                  /admin/api/shows[/<id>], PUT .../lineup, sources, GET /admin/api/runs)
 static/           index.html (the shell; / and /admin fill in __APP_NAME__), style.css (markers `/* ==== Task N */`),
                   manifest.json (GET /manifest.json sets name and short_name), icon.svg, robots.txt
 static/js/        hash-routed ES modules, no build step: main.js (router, header, document.title; route(),
@@ -128,6 +131,7 @@ static/js/        hash-routed ES modules, no build step: main.js (router, header
   home.js         #/: map, year strip, show list; renderYearStrip, renderUnmapped, renderPopup
   leaflet-loader.js  loadLeaflet(): loads the vendored Leaflet and markercluster once, resolves with window.L
   urlfetch.js     the "From a link" show panel (editor-only, order 50): renderSuggestions
+  edit.js         #/admin/show/new, #/admin/show/<id>/edit, the Edit show panel (order 0), "+ Show" header link
 static/vendor/    pinned third-party files (README.md lists them): leaflet/ 1.9.4 (BSD-2-Clause),
                   markercluster/ 1.5.3 (MIT); exempt from the static/js/ rules
 tests/            conftest.py + one test file per module; test_privacy.py (public walk), test_hygiene.py,

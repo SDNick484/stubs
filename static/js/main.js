@@ -81,6 +81,11 @@ headerLink("#/stats", "Stats", { order: 60 });
 
 
 // ==== Task 11: Show editing
+import { renderEditPanel, renderEditShow, renderNewShow } from "./edit.js";
+route("admin/show/new", renderNewShow);
+route("admin/show/:id/edit", renderEditShow);
+headerLink("#/admin/show/new", "+ Show", { editorOnly: true, order: 80 });
+registerShowPanel("Edit", { order: 0, editorOnly: true, render: renderEditPanel });
 
 
 // ==== Task 12: Companions
