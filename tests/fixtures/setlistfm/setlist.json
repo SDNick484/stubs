@@ -1,0 +1,15 @@
+{
+  "id": "63ab1c4e",
+  "versionId": "g3b5c1e9",
+  "eventDate": "19-07-2025",
+  "artist": {"mbid": "00000000-0000-4000-8000-000000000001", "name": "The Paper Lanterns"},
+  "venue": {"id": "3bd4a2f1", "name": "Granite Hall",
+            "city": {"id": "5391959", "name": "Oakland", "state": "California", "stateCode": "CA",
+                     "country": {"code": "US", "name": "United States"}}},
+  "sets": {"set": [
+    {"song": [{"name": "Lantern Light"}, {"name": "Slow Harbor"}, {"name": "Tin Roof Weather", "cover": {"name": "Marigold Static"}}]},
+    {"name": "Acoustic", "song": [{"name": "Quiet Orchard"}]},
+    {"encore": 1, "song": [{"name": "Last Match"}, {"name": ""}]}
+  ]},
+  "url": "https://www.setlist.fm/setlist/the-paper-lanterns/2025/granite-hall-oakland-ca-63ab1c4e.html"
+}

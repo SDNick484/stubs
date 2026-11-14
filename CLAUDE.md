@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3, 6, 10, 12, 16.
+**Status:** Built: Task 1, 2, 3, 6, 10, 12, 16, 18.
 
 ## Commands
 
@@ -87,6 +87,8 @@ stats.py          stats(con): totals, shows per year, top artists/venues/cities 
 people.py         companions (editor-only): list_people, create_person, companions, set_companions, person_shows
 geocode.py        Nominatim lookup (1 req/s, UA, 10 s), locate_venue, set_coords, missing_coords (Task 16); its
                   front end is static/js/venues.js (#/admin/venues, the "Not on the map" card)
+setlistfm.py      setlist.fm client (Task 18): search(artist, date), fetch_setlist(id) (1 h in-memory cache, never stored),
+                  link/unlink/linked (setlist_link: id and url only), panel(con, show_id), Unavailable. Routes in app.py.
 static/           index.html (the shell; / and /admin fill in __APP_NAME__), style.css (markers `/* ==== Task N */`),
                   manifest.json (GET /manifest.json sets name and short_name), icon.svg, robots.txt
 static/js/        hash-routed ES modules, no build step: main.js (router, header, document.title; route(),
@@ -96,6 +98,7 @@ static/js/        hash-routed ES modules, no build step: main.js (router, header
   stats.js        #/stats: renderBars, cityHref, renderStats
   companions.js   the With show panel (order 40) and #/admin/people
   venues.js       #/admin/venues and the "Not on the map" admin card (order 40)
+  setlist.js      the Setlist show panel (order 20)
 static/vendor/    pinned third-party files (README.md lists them); exempt from the static/js/ rules
 tests/            conftest.py + one test file per module; test_privacy.py (public walk), test_hygiene.py,
                   test_frontend.py (shell, CSP and escaping scans), test_installer_static.py, test_shell_ui.py
