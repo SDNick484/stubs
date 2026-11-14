@@ -173,6 +173,62 @@ main { max-width: 960px; margin: 0 auto; padding: 0 var(--s4) var(--s5); }
 
 
 /* ==== Task 11: Show editing */
+.btn-danger { background: var(--danger); border-color: var(--danger); color: var(--page); }
+.edit-form { display: grid; gap: var(--s4); }
+.edit-group {
+  margin: 0; padding: var(--s4); display: grid; gap: var(--s3); min-width: 0;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card);
+}
+.edit-group legend { padding: 0 var(--s1); font-weight: 700; color: var(--accent); }
+.edit-group > p { margin: 0; }
+.edit-form label, .source-add label { display: grid; gap: var(--s1); min-width: 0; color: var(--ink-2); font-size: var(--fs-sm); }
+.edit-form input:not([type=checkbox]), .edit-form select, .edit-form textarea,
+.source-add input, .source-add select {
+  width: 100%; min-width: 0; min-height: var(--tap); padding: var(--s2) var(--s3); font-size: var(--fs-md);
+  background: var(--raised); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-card);
+}
+.edit-form textarea { resize: vertical; }
+.edit-form label.edit-check { display: flex; align-items: center; gap: var(--s2); min-height: var(--tap); color: var(--ink); }
+.edit-check input { width: 1.25rem; height: 1.25rem; margin: 0; }
+.edit-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
+.venue-chosen { margin: 0; }
+.venue-find { display: grid; grid-template-columns: 1fr auto; gap: var(--s2); }
+.venue-results { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s1); }
+.venue-results:empty { display: none; }
+.venue-option {
+  width: 100%; min-height: var(--tap); display: grid; gap: 2px; padding: var(--s2) var(--s3); text-align: left;
+  background: var(--raised); border: 1px solid var(--line); border-radius: var(--r-card); cursor: pointer;
+}
+.venue-option:hover { border-color: var(--accent); }
+.venue-option-name { font-weight: 600; }
+.venue-new { display: grid; gap: var(--s3); }
+.lineup-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s3); }
+.lineup-row {
+  display: grid; gap: var(--s2); padding: var(--s3); background: var(--raised); border: 1px solid var(--line);
+  border-radius: var(--r-card);
+}
+.lineup-main { display: grid; grid-template-columns: 1fr 9rem; gap: var(--s2); }
+.lineup-more { display: grid; grid-template-columns: auto 1fr 7rem; gap: var(--s2); align-items: center; }
+.lineup-row input:not([type=checkbox]), .lineup-row select { background: var(--card); }
+.lineup-actions { display: flex; gap: var(--s2); }
+.lineup-actions .btn { padding: 0 var(--s3); }
+.lineup-actions [data-act=remove] { margin-left: auto; }
+.edit-form .btn:disabled { opacity: .45; cursor: default; }
+.edit-save { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); }
+.edit-status { margin: 0; color: var(--ok); }
+.edit-status:empty, .edit-errors:empty { display: none; }
+.edit-error p { margin: 0 0 var(--s2); }
+.source-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.source-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2); }
+.source-text { min-width: 0; }
+.source-add { display: grid; gap: var(--s3); padding-top: var(--s3); border-top: 1px solid var(--line); }
+.source-add p { margin: 0; }
+.edit-confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s2); font-weight: 600; }
+.edit-confirm .btn { padding: 0 var(--s3); }
+.edit-panel { margin: 0; }
+@media (max-width: 380px) {
+  .lineup-main, .lineup-more { grid-template-columns: 1fr; }
+}
 
 
 /* ==== Task 12: Companions */
