@@ -78,6 +78,9 @@ headerLink("#/stats", "Stats", { order: 60 });
 
 
 // ==== Task 12: Companions
+import { renderPeoplePage, renderWithPanel } from "./companions.js";
+route("admin/people", renderPeoplePage);
+registerShowPanel("With", { order: 40, editorOnly: true, render: renderWithPanel });
 
 
 // ==== Task 13: To-confirm list

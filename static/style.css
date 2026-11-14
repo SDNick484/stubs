@@ -157,6 +157,13 @@ main { max-width: 960px; margin: 0 auto; padding: 0 var(--s4) var(--s5); }
 
 
 /* ==== Task 12: Companions */
+.person-ticks { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); }
+.person-tick { display: inline-flex; align-items: center; gap: var(--s1); min-height: 44px; }
+.person-add { display: flex; gap: var(--s2); margin-top: var(--s2); }
+.person-add input { flex: 1; min-width: 0; min-height: 44px; }
+.people, .person-shows { list-style: none; padding: 0; margin: 0; }
+.person-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); padding: var(--s2) 0; }
+.person-row .person-shows { flex-basis: 100%; padding-left: var(--s3); }
 
 
 /* ==== Task 13: To-confirm list */
