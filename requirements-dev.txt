@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest>=8
+# Lint, pinned so a new release cannot turn CI red on its own. Not runtime dependencies.
+ruff==0.16.9
+shellcheck-py==0.11.0.1
+# playwright (the UI smoke job only) is pinned in .github/workflows/ci.yml.

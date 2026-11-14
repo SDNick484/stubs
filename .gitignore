@@ -1,0 +1,24 @@
+# local data from running the app in development
+data/
+
+# generated installer
+dist/
+
+# local settings (copy .env.example)
+.env
+
+# concert data: the owner's real CSV never enters the repo. Invented fixtures only, under tests/fixtures/.
+*.csv
+!tests/fixtures/*.csv
+
+# real names and hostnames for tests/test_hygiene.py; must never be committed
+tests/hygiene_denylist.txt
+
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+node_modules/
+.DS_Store

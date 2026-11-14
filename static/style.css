@@ -1,0 +1,172 @@
+/* Stubs. Phone first (412 px), one column, dark like Matinee: near-black surfaces, warm ivory ink, a ticket-amber
+   accent. Colours and sizes are tokens on :root; feature tasks add their rules under their own marker below.
+   The Content-Security-Policy allows no inline style: style from JS only through classes or the CSSOM. */
+
+/* ==== Task 1: Scaffold — tokens, base, header, notices, cards, show rows */
+:root {
+  --page: #0e0d10;
+  --card: #18171c;
+  --raised: #222129;
+  --line: #2f2d38;
+  --ink: #f3ead8;
+  --ink-2: #b8b0a1;
+  --ink-3: #938d80;
+  --accent: #f2b544;
+  --accent-ink: #17120a;
+  --link: #f5c66b;
+  --danger: #ef5a52;
+  --ok: #5cc178;
+  --focus: #f2b544;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --fs-sm: .875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.6rem;
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --r-card: 10px;
+  --r-chip: 999px;
+  --tap: 44px;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font: var(--fs-md)/1.5 var(--font);
+  -webkit-text-size-adjust: 100%;
+  overflow-wrap: anywhere;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--link); text-underline-offset: 3px; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+h1 { margin: 0; font-size: var(--fs-xl); line-height: 1.2; }
+h2 { margin: 0 0 var(--s2); font-size: var(--fs-lg); }
+p { margin: 0 0 var(--s2); }
+.muted { color: var(--ink-2); }
+.small { font-size: var(--fs-sm); }
+.loading { color: var(--ink-2); padding: var(--s5) 0; }
+.error { color: var(--danger); }
+
+.top {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap;
+  max-width: 960px; margin: 0 auto; padding: calc(var(--s2) + env(safe-area-inset-top)) var(--s4) var(--s2);
+}
+.brand {
+  display: inline-flex; align-items: center; min-height: var(--tap);
+  font-weight: 800; font-size: var(--fs-lg); color: var(--accent); text-decoration: none; letter-spacing: .02em;
+}
+.nav { display: flex; gap: var(--s1); flex-wrap: wrap; }
+.nav-link {
+  display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 var(--s2);
+  color: var(--ink); text-decoration: none; font-weight: 600;
+}
+.nav-link:hover { text-decoration: underline; }
+
+main { max-width: 960px; margin: 0 auto; padding: 0 var(--s4) var(--s5); }
+.view { display: grid; gap: var(--s4); }
+.foot {
+  max-width: 960px; margin: 0 auto; padding: var(--s4) var(--s4) calc(var(--s5) + env(safe-area-inset-bottom));
+  font-size: var(--fs-sm); color: var(--ink-3);
+}
+.foot a { color: var(--ink-3); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: var(--tap); padding: 0 var(--s4);
+  border: 1px solid var(--line); border-radius: var(--r-card); background: var(--raised); color: var(--ink);
+  font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.notice {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s4);
+}
+.notice.error { border-color: var(--danger); color: var(--ink); }
+.cards { display: grid; gap: var(--s3); }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s4);
+  display: grid; gap: var(--s2);
+}
+.card > * { margin: 0; }
+.tag {
+  display: inline-block; padding: 0 var(--s2); border-radius: var(--r-chip); font-size: var(--fs-sm);
+  background: var(--raised); color: var(--ink-2); white-space: nowrap;
+}
+.tag-upcoming { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+.show-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; }
+.show-row { display: flex; align-items: center; gap: var(--s2); background: var(--card); padding: 0 var(--s3) 0 0; }
+.show-row.is-upcoming { background: var(--raised); }
+.show-link {
+  flex: 1; min-width: 0; display: grid; gap: 2px; padding: var(--s3) 0 var(--s3) var(--s3);
+  color: var(--ink); text-decoration: none;
+}
+.show-date { color: var(--accent); font-size: var(--fs-sm); font-weight: 700; font-variant-numeric: tabular-nums; }
+.show-billing { font-weight: 700; }
+.show-place { color: var(--ink-2); font-size: var(--fs-sm); }
+.show-role { color: var(--ink-3); font-size: var(--fs-sm); white-space: nowrap; }
+
+@media (min-width: 720px) {
+  .show-link { grid-template-columns: 9rem 1fr; column-gap: var(--s3); }
+  .show-place { grid-column: 2; }
+}
+
+
+/* ==== Task 2: Records */
+
+
+/* ==== Task 3: CSV parser */
+
+
+/* ==== Task 4: Import batches */
+
+
+/* ==== Task 5: Import screens */
+
+
+/* ==== Task 6: Browse API */
+
+
+/* ==== Task 7: Show page */
+
+
+/* ==== Task 8: Artist, venue, year and city pages */
+
+
+/* ==== Task 9: Home — map, year strip and list */
+
+
+/* ==== Task 10: Stats */
+
+
+/* ==== Task 11: Show editing */
+
+
+/* ==== Task 12: Companions */
+
+
+/* ==== Task 13: To-confirm list */
+
+
+/* ==== Task 14: Upcoming and Did you go? */
+
+
+/* ==== Task 15: Merge artists and venues */
+
+
+/* ==== Task 16: Venue coordinates */
+
+
+/* ==== Task 17: Images */
+
+
+/* ==== Task 18: setlist.fm panel */
+
+
+/* ==== Task 19: Fetch from a URL */
