@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19.
+**Status:** Built: Task 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19.
 
 ## Commands
 
@@ -131,6 +131,8 @@ static/js/        hash-routed ES modules, no build step: main.js (router, header
   home.js         #/: map, year strip, show list; renderYearStrip, renderUnmapped, renderPopup
   leaflet-loader.js  loadLeaflet(): loads the vendored Leaflet and markercluster once, resolves with window.L
   urlfetch.js     the "From a link" show panel (editor-only, order 50): renderSuggestions
+  imports.js      #/admin/import, #/admin/import/<id> and the Imports waiting admin card (order 30): renderImportRow,
+                  renderGroups
   edit.js         #/admin/show/new, #/admin/show/<id>/edit, the Edit show panel (order 0), "+ Show" header link
 static/vendor/    pinned third-party files (README.md lists them): leaflet/ 1.9.4 (BSD-2-Clause),
                   markercluster/ 1.5.3 (MIT); exempt from the static/js/ rules

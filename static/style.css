@@ -128,6 +128,22 @@ main { max-width: 960px; margin: 0 auto; padding: 0 var(--s4) var(--s5); }
 
 
 /* ==== Task 5: Import screens */
+.import-form { display: flex; gap: var(--s2); flex-wrap: wrap; align-items: center; }
+.import-form input { flex: 1 1 14em; min-width: 0; min-height: var(--tap); color: var(--ink); }
+.import-groups { display: grid; gap: var(--s4); }
+.import-list, .import-pending, .import-acts { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.import-row { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s3); }
+.import-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); justify-content: space-between; }
+.import-tick, .import-likely { display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--tap); }
+.import-act { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.import-act-name { flex: 1 1 8em; }
+.import-role { min-height: var(--tap); padding: 0 var(--s2); background: var(--raised); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--r-card); }
+.import-flag { background: var(--raised); border: 1px solid var(--accent); border-radius: var(--r-chip); padding: 0 var(--s2); font-size: var(--fs-sm); }
+.import-differs { color: var(--accent); }
+.import-actions, .import-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.import-status:empty, .import-row-msg:empty, .import-msg:empty { display: none; }
+.import-added { color: var(--ok); font-weight: 600; }
 
 
 /* ==== Task 6: Browse API */
