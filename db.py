@@ -1,4 +1,4 @@
-"""The SQLite schema (spec section 5, schema v1), connections, transactions and migrate(), plus the per-request
+"""The SQLite schema (spec section 5, schema v2), connections, transactions and migrate(), plus the per-request
 connection db() and init_db().
 
 Connections run in autocommit mode (isolation_level=None): a single statement commits on its own, and anything that
@@ -6,6 +6,7 @@ must be atomic runs inside `with transaction(con):`, which nests (an inner block
 change adds a step to MIGRATIONS and bumps SCHEMA_VERSION; migrate() is idempotent and runs at every start, so the
 host never needs a manual DB step. Dates are ISO strings; created_at/updated_at are SQLite CURRENT_TIMESTAMP text."""
 import itertools
+import logging
 import os
 import sqlite3
 from contextlib import contextmanager
@@ -14,9 +15,12 @@ from flask import g
 
 import settings
 
-SCHEMA_VERSION = "1"
+log = logging.getLogger(__name__)
 
-# Version 1. Statements are separated by ";" and contain none themselves (no triggers): see _statements().
+SCHEMA_VERSION = "2"
+
+# The current schema (v2), which a new database gets in one step (_to_v1); _to_v2 then finds nothing to do.
+# Statements are separated by ";" and contain none themselves (no triggers): see _statements().
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS artist (
@@ -112,7 +116,7 @@ CREATE TABLE IF NOT EXISTS image (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
 CREATE INDEX IF NOT EXISTS image_show ON image(show_id);
 CREATE TABLE IF NOT EXISTS setlist_link (
-  show_id INTEGER PRIMARY KEY REFERENCES show(id) ON DELETE CASCADE,
+  lineup_id INTEGER PRIMARY KEY REFERENCES lineup(id) ON DELETE CASCADE,
   setlistfm_id TEXT NOT NULL,
   url TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS import_batch (
@@ -191,7 +195,42 @@ def _to_v1(con):
         con.execute(stmt)
 
 
-MIGRATIONS = {1: _to_v1}  # version -> the step that brings version-1 up to it
+# v2's setlist_link, written out here so the step stays what it was whatever SCHEMA becomes later.
+_V2_SETLIST_LINK = """CREATE TABLE setlist_link (
+  lineup_id INTEGER PRIMARY KEY REFERENCES lineup(id) ON DELETE CASCADE,
+  setlistfm_id TEXT NOT NULL,
+  url TEXT NOT NULL)"""
+
+# A show's headlining entry: the lowest position with role headliner, else coheadliner, else any role.
+_HEADLINING_ENTRY = ("SELECT id FROM lineup WHERE show_id = ? ORDER BY "
+                     "CASE role WHEN 'headliner' THEN 0 WHEN 'coheadliner' THEN 1 ELSE 2 END, position, id LIMIT 1")
+
+
+def _to_v2(con):
+    """setlist_link goes from one row per show (show_id) to one per lineup entry (lineup_id). Each v1 link moves onto
+    its show's headlining entry; a show with a link but no lineup loses the link, logged. Nothing to do when the
+    table already has lineup_id (a new database, which gets v2 from SCHEMA). Runs inside migrate()'s transaction,
+    so a failure part-way leaves v1 as it was."""
+    columns = {r["name"] for r in con.execute("PRAGMA table_info(setlist_link)")}
+    if "show_id" not in columns:
+        return
+    con.execute("ALTER TABLE setlist_link RENAME TO setlist_link_v1")
+    con.execute(_V2_SETLIST_LINK)
+    moved = 0
+    for row in con.execute("SELECT show_id, setlistfm_id, url FROM setlist_link_v1 ORDER BY show_id").fetchall():
+        entry = con.execute(_HEADLINING_ENTRY, (row["show_id"],)).fetchone()
+        if entry is None:
+            log.warning("schema v2: show %s has no lineup, so its setlist.fm link (%s, %s) was dropped",
+                        row["show_id"], row["setlistfm_id"], row["url"])
+            continue
+        con.execute("INSERT INTO setlist_link (lineup_id, setlistfm_id, url) VALUES (?, ?, ?)",
+                    (entry["id"], row["setlistfm_id"], row["url"]))
+        moved += 1
+    con.execute("DROP TABLE setlist_link_v1")
+    log.info("schema v2: %d setlist.fm link(s) moved onto their show's headlining act", moved)
+
+
+MIGRATIONS = {1: _to_v1, 2: _to_v2}  # version -> the step that brings version-1 up to it
 
 
 def migrate(con) -> None:

@@ -27,7 +27,8 @@ def _get(con, table, row_id, kind):
 def merge_artists(con, keep_id, drop_id) -> None:
     """Fold artist drop_id into keep_id. Lineup entries move; where both are on one show the kept entry stays as it
     is (role, position, confidence; a missing rating is filled from the dropped entry), the dropped entry's sources
-    move to it, and the dropped entry goes. Aliases move, the dropped name becomes an alias, the artist is deleted."""
+    move to it, so does its setlist link if the kept entry has none (else it cascades away), and the dropped entry
+    goes. Aliases move, the dropped name becomes an alias, the artist is deleted."""
     _ids(keep_id, drop_id, "artist")
     with transaction(con):
         keep = _get(con, "artist", keep_id, "artist")
@@ -40,6 +41,9 @@ def merge_artists(con, keep_id, drop_id) -> None:
             (keep_id, drop_id)).fetchall()
         for row in both:
             con.execute("UPDATE source SET lineup_id = ? WHERE lineup_id = ?", (row["keep_entry"], row["drop_entry"]))
+            con.execute("UPDATE setlist_link SET lineup_id = :keep WHERE lineup_id = :drop "
+                        "AND NOT EXISTS (SELECT 1 FROM setlist_link WHERE lineup_id = :keep)",
+                        {"keep": row["keep_entry"], "drop": row["drop_entry"]})
             con.execute("UPDATE lineup SET rating = COALESCE(rating, ?) WHERE id = ?", (row["rating"], row["keep_entry"]))
             con.execute("DELETE FROM lineup WHERE id = ?", (row["drop_entry"],))
         con.execute("UPDATE lineup SET artist_id = ? WHERE artist_id = ?", (keep_id, drop_id))

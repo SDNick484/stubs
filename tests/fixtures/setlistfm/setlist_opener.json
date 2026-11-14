@@ -1,0 +1,13 @@
+{
+  "id": "2b7f9a10",
+  "versionId": "g5d1a7c3",
+  "eventDate": "19-07-2025",
+  "artist": {"mbid": "00000000-0000-4000-8000-000000000002", "name": "Marigold Static"},
+  "venue": {"id": "3bd4a2f1", "name": "Granite Hall",
+            "city": {"id": "5391959", "name": "Oakland", "state": "California", "stateCode": "CA",
+                     "country": {"code": "US", "name": "United States"}}},
+  "sets": {"set": [
+    {"song": [{"name": "Static Bloom"}, {"name": "Copper Wires"}, {"name": "Lowlight Avenue"}]}
+  ]},
+  "url": "https://www.setlist.fm/setlist/marigold-static/2025/granite-hall-oakland-ca-2b7f9a10.html"
+}

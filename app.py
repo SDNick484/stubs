@@ -772,10 +772,20 @@ def _setlist_show(show_id, *, public):
     return row
 
 
+def _setlist_entry(show_id, lineup_id):
+    """The lineup entry (id, artist name) if it is on this show; 404 otherwise."""
+    row = db().execute("SELECT l.id, a.name FROM lineup l JOIN artist a ON a.id = l.artist_id "
+                       "WHERE l.id = ? AND l.show_id = ?", (lineup_id, show_id)).fetchone()
+    if row is None:
+        raise ApiError(404, "Not found")
+    return row
+
+
 @app.get("/api/shows/<int:show_id>/setlist")
 @public_read
 def show_setlist(show_id):
-    """The show's setlist, fetched live (never stored). A friend following a link to an upcoming show gets 404."""
+    """Each linked act's setlist, fetched live (never stored). A friend following a link to an upcoming show gets
+    404."""
     _setlist_show(show_id, public=True)
     return jsonify(setlistfm.panel(db(), show_id))
 
@@ -783,48 +793,58 @@ def show_setlist(show_id):
 @app.get("/admin/api/shows/<int:show_id>/setlist")
 @editor_required
 def admin_show_setlist(show_id):
-    """The same, for pages under /admin (whose requests carry the editor's login), upcoming shows included."""
+    """The same, for pages under /admin (whose requests carry the editor's login), upcoming shows included, plus the
+    acts with no setlist linked."""
     _setlist_show(show_id, public=False)
-    return jsonify(setlistfm.panel(db(), show_id))
+    return jsonify(setlistfm.panel(db(), show_id, editor=True))
 
 
 @app.get("/admin/api/shows/<int:show_id>/setlistfm/search")
 @editor_required
 def admin_setlistfm_search(show_id):
-    """setlist.fm matches for the show's headliner on its date. {"available": false} on no key or an upstream error."""
+    """Without lineup_id: every act's setlist at the show's venue on its date, matched to the lineup
+    ({"available", "acts", "unmatched"}). With ?lineup_id=: that act's setlists on the date by its name
+    ({"available", "results"}). {"available": false} on no key or an upstream error. Links nothing."""
     show = _setlist_show(show_id, public=False)
+    raw = request.args.get("lineup_id")
+    entry = None
+    if raw is not None:
+        if not (raw.isascii() and raw.isdigit() and len(raw) <= 18):
+            raise ApiError(400, "lineup_id must be a lineup entry's id.")
+        entry = _setlist_entry(show_id, int(raw))
     if show["date_precision"] != "day":
         raise ApiError(400, "Searching setlist.fm needs a show with a full date.")
-    row = db().execute("SELECT a.name FROM lineup l JOIN artist a ON a.id = l.artist_id WHERE l.show_id = ? "
-                       "ORDER BY CASE l.role WHEN 'headliner' THEN 0 WHEN 'coheadliner' THEN 1 ELSE 2 END, "
-                       "l.position, l.id LIMIT 1", (show_id,)).fetchone()
     try:
-        results = setlistfm.search(row["name"] if row else show["billing"], show["date"])
+        if entry is not None:
+            return jsonify(available=True, results=setlistfm.search(entry["name"], show["date"]))
+        return jsonify(available=True, **setlistfm.find_for_show(db(), show_id))
     except setlistfm.Unavailable as e:
         app.logger.warning("setlist.fm search failed: %s", e)
-        return jsonify(available=False, results=[])
-    return jsonify(available=True, results=results)
+        if entry is not None:
+            return jsonify(available=False, results=[])
+        return jsonify(available=False, acts=[], unmatched=[])
 
 
-@app.put("/admin/api/shows/<int:show_id>/setlistfm")
+@app.put("/admin/api/shows/<int:show_id>/lineup/<int:lineup_id>/setlistfm")
 @editor_required
-def admin_setlistfm_link(show_id):
-    _setlist_show(show_id, public=False)
+def admin_setlistfm_link(show_id, lineup_id):
+    """{"id", "url"}: this act's setlist.fm page. Only the id and the link are kept."""
+    _setlist_entry(show_id, lineup_id)
     data = json_body()
     sid, url = text(data, "id", 24, required=True), text(data, "url", 500, required=True)
     if not setlistfm.valid_id(sid):
         raise ApiError(400, "id is not a setlist.fm id.")
     if not setlistfm.valid_url(url):
         raise ApiError(400, "url must be a setlist.fm page.")
-    setlistfm.link(db(), show_id, sid, url)
+    setlistfm.link(db(), lineup_id, sid, url)
     return jsonify(ok=True)
 
 
-@app.delete("/admin/api/shows/<int:show_id>/setlistfm")
+@app.delete("/admin/api/shows/<int:show_id>/lineup/<int:lineup_id>/setlistfm")
 @editor_required
-def admin_setlistfm_unlink(show_id):
-    _setlist_show(show_id, public=False)
-    setlistfm.unlink(db(), show_id)
+def admin_setlistfm_unlink(show_id, lineup_id):
+    _setlist_entry(show_id, lineup_id)
+    setlistfm.unlink(db(), lineup_id)
     return jsonify(ok=True)
 
 
