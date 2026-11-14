@@ -51,6 +51,10 @@ headerLink("#/admin", "Admin", { editorOnly: true, order: 90 });
 
 
 // ==== Task 5: Import screens
+import { renderImportPage, renderImportReview } from "./imports.js"; // also registers the "Imports waiting" card (order 30)
+route("admin/import", renderImportPage);
+route("admin/import/:id", renderImportReview);
+headerLink("#/admin/import", "Import", { editorOnly: true, order: 88 });
 
 
 // ==== Task 6: Browse API
