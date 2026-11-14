@@ -90,6 +90,9 @@ registerShowPanel("With", { order: 40, editorOnly: true, render: renderWithPanel
 
 
 // ==== Task 15: Merge artists and venues
+import { renderMerge } from "./merge.js";
+route("admin/merge", renderMerge);
+headerLink("#/admin/merge", "Merge", { editorOnly: true, order: 85 });
 
 
 // ==== Task 16: Venue coordinates

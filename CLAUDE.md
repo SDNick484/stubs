@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3, 6, 10, 12, 16, 17, 18.
+**Status:** Built: Task 1, 2, 3, 6, 10, 12, 15, 16, 17, 18.
 
 ## Commands
 
@@ -91,6 +91,8 @@ setlistfm.py      setlist.fm client (Task 18): search(artist, date), fetch_setli
                   link/unlink/linked (setlist_link: id and url only), panel(con, show_id), Unavailable. Routes in app.py.
 images.py         posters, photos, stubs (spec 7.9): MAX_IMAGE_BYTES, sniff_image, save_image, list_images, update_image,
                   delete_image, visible_file (who may see a file); routes in app.py under Task 17
+merge.py          merge_artists, merge_venues (atomic; aliases and former names kept, shows' version bumped),
+                  search_artists, search_venues (GET /admin/api/artists|venues?q=, also Task 11's venue picker)
 static/           index.html (the shell; / and /admin fill in __APP_NAME__), style.css (markers `/* ==== Task N */`),
                   manifest.json (GET /manifest.json sets name and short_name), icon.svg, robots.txt
 static/js/        hash-routed ES modules, no build step: main.js (router, header, document.title; route(),
@@ -102,6 +104,7 @@ static/js/        hash-routed ES modules, no build step: main.js (router, header
   venues.js       #/admin/venues and the "Not on the map" admin card (order 40)
   setlist.js      the Setlist show panel (order 20)
   images.js       the Pictures show panel (order 10): groupImages, renderPictures, renderPicturesPanel
+  merge.js        #/admin/merge: renderMergeConfirm, renderPick
 static/vendor/    pinned third-party files (README.md lists them); exempt from the static/js/ rules
 tests/            conftest.py + one test file per module; test_privacy.py (public walk), test_hygiene.py,
                   test_frontend.py (shell, CSP and escaping scans), test_installer_static.py, test_shell_ui.py
