@@ -65,6 +65,11 @@ route("show/:id", renderShowPage);
 
 
 // ==== Task 8: Artist, venue, year and city pages
+import { showArtist, showCity, showVenue, showYear } from "./pages.js";
+route("artist/:id", showArtist);
+route("venue/:id", showVenue);
+route("year/:yyyy", showYear);
+route("city/:country/:region/:city", showCity);
 
 
 // ==== Task 9: Home — map, year strip and list
