@@ -16,7 +16,7 @@ PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4
 PHONE = {"width": 412, "height": 915}
 
 try:
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import expect, sync_playwright
 except ImportError:  # pragma: no cover - depends on the machine
     if REQUIRED:
         raise
@@ -77,7 +77,7 @@ def test_home_map_year_strip_and_list(server, browser, con):
 
     page.locator(".year-pill", has_text="2009").click()
     page.locator(".year-pill.is-selected", has_text="2009").wait_for()
-    page.wait_for_function("document.querySelectorAll('.show-row').length === 1")
+    expect(page.locator(".show-row")).to_have_count(1)
     assert "Cold Harbor" in page.locator(".show-row").inner_text()
     assert page.locator(".unmapped").count() == 0
     page.locator(".leaflet-marker-icon").first.wait_for()
@@ -90,7 +90,7 @@ def test_home_map_year_strip_and_list(server, browser, con):
 def test_home_deep_link_to_a_year(server, browser, con):
     seed(con)
     page = open_page(browser, server + "/#/?year=2010")
-    page.wait_for_function("document.querySelectorAll('.show-row').length === 2")
+    expect(page.locator(".show-row")).to_have_count(2)
     assert page.locator(".year-pill.is-selected").inner_text() == "2010"
     assert page.locator(".unmapped").inner_text() == "1 show not on the map"
     assert page.errors == []
