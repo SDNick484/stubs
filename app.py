@@ -336,6 +336,13 @@ def admin_api_city(country, region, city):
 
 
 # ==== Task 10: Stats
+from stats import stats  # noqa: E402
+
+
+@app.get("/api/stats")
+@public_read
+def api_stats():
+    return jsonify(stats(db()))
 
 
 # ==== Task 11: Show editing
