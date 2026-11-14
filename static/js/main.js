@@ -135,6 +135,12 @@ import "./setlist.js"; // registers the Setlist show panel (order 20)
 import "./urlfetch.js"; // registers the editor-only "From a link" show panel (order 50)
 
 
+// ==== Task 20: Venue editing
+import { renderEditVenue, showVenueWithEdit } from "./venueedit.js";
+route("admin/venue/:id/edit", renderEditVenue);
+route("venue/:id", ctx => showVenueWithEdit(showVenue, ctx)); // the venue page, plus "Edit venue" for editors under /admin
+
+
 // ---------------------------------------------------------------- the router (runs after every route is registered)
 const host = document.getElementById("app");
 const brand = document.getElementById("appName");

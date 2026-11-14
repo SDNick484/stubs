@@ -110,6 +110,9 @@ fetchurl.py       fetch from a URL (spec 7.12) behind the SSRF guard: check_host
 editing.py        show editing (Task 11): create, update_show (version-checked, 409 STALE), set_lineup, delete,
                   add_show_source, remove_source, list_runs; routes in app.py (POST/PATCH/DELETE
                   /admin/api/shows[/<id>], PUT .../lineup, sources, GET /admin/api/runs)
+venueedit.py      venue editing (Task 20): view, update_venue (name/city/region/country; a rename keeps the old name,
+                  coordinates kept), add_name, remove_name (409 for the current name, a name a ticket uses, or a name
+                  another venue in the city has); routes in app.py under Task 20 at /admin/api/venues/<id>[/names]
 static/           index.html (the shell; / and /admin fill in __APP_NAME__), style.css (markers `/* ==== Task N */`),
                   manifest.json (GET /manifest.json sets name and short_name), icon.svg, robots.txt
 static/js/        hash-routed ES modules, no build step: main.js (router, header, document.title; route(),
@@ -118,6 +121,8 @@ static/js/        hash-routed ES modules, no build step: main.js (router, header
                   registry.js (registerShowPanel, registerAdminCard, showPanels, adminCards), admin.js (#/admin)
   stats.js        #/stats: renderBars, cityHref, renderStats
   companions.js   the With show panel (order 40) and #/admin/people
+  venueedit.js    #/admin/venue/<id>/edit and the "Edit venue" link on the venue page under /admin: renderNameRow,
+                  renderVenueForm, changedFields
   venues.js       #/admin/venues and the "Not on the map" admin card (order 40)
   setlist.js      the Setlist show panel (order 20)
   images.js       the Pictures show panel (order 10): groupImages, renderPictures, renderPicturesPanel

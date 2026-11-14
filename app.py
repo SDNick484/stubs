@@ -852,6 +852,40 @@ def fetch_url_apply(show_id):
     return jsonify(fetchurl.apply(db(), show_id, kind, value, url)), 201
 
 
+# ==== Task 20: Venue editing
+import venueedit  # noqa: E402
+
+
+@app.get("/admin/api/venues/<int:venue_id>/names")
+@editor_required
+def admin_venue_edit_view(venue_id):
+    """The venue's fields and every name it has had, each with the number of shows that have it on the ticket."""
+    return jsonify(venueedit.view(db(), venue_id))
+
+
+@app.patch("/admin/api/venues/<int:venue_id>")
+@editor_required
+def admin_venue_update(venue_id):
+    """Any of name, city, region, country -> the venue view plus coordinates_kept (true when the place changed and the
+    venue has coordinates: offer "Locate again"). A rename keeps the old name as a former name."""
+    return jsonify(venueedit.update_venue(db(), venue_id, json_body()))
+
+
+@app.post("/admin/api/venues/<int:venue_id>/names")
+@editor_required
+def admin_venue_add_name(venue_id):
+    """{"name"} -> the venue view; 201 when the name is new, 200 when the venue already had it."""
+    out, added = venueedit.add_name(db(), venue_id, json_body().get("name"))
+    return jsonify(out), 201 if added else 200
+
+
+@app.delete("/admin/api/venues/<int:venue_id>/names")
+@editor_required
+def admin_venue_remove_name(venue_id):
+    """{"name"} -> the venue view without it; 409 when it is the current name or a ticket uses it."""
+    return jsonify(venueedit.remove_name(db(), venue_id, json_body().get("name")))
+
+
 init_db()
 
 if __name__ == "__main__":
