@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3, 4, 6, 10, 12, 13, 15, 16, 17, 18.
+**Status:** Built: Task 1, 2, 3, 4, 6, 10, 12, 13, 14, 15, 16, 17, 18.
 
 ## Commands
 
@@ -99,6 +99,8 @@ imports.py        import batches (spec 7.3 steps 2-4): validate_proposal, match,
                   /admin/api/import-rows/<id>
 confirm.py        the to-confirm list (Task 13): to_confirm(con), confirm(con, kind, id, source_label, source_url);
                   routes GET /admin/api/to-confirm, POST /admin/api/to-confirm/confirm in app.py
+upcoming.py       upcoming shows (Task 14): due(con, today), upcoming(con), resolve(con, show_id, went) (went -> attended,
+                  version bumped; not went -> records.delete_show; 409 if not upcoming); routes in app.py
 static/           index.html (the shell; / and /admin fill in __APP_NAME__), style.css (markers `/* ==== Task N */`),
                   manifest.json (GET /manifest.json sets name and short_name), icon.svg, robots.txt
 static/js/        hash-routed ES modules, no build step: main.js (router, header, document.title; route(),
@@ -113,6 +115,7 @@ static/js/        hash-routed ES modules, no build step: main.js (router, header
   merge.js        #/admin/merge: renderMergeConfirm, renderPick
   confirm.js      #/admin/confirm and the To confirm admin card (order 20): renderConfirmItem, renderConfirmPage,
                   renderConfirmCard
+  didyougo.js     the "Did you go?" (order 10) and "Coming up" (order 15) admin cards: renderDue, renderUpcoming
 static/vendor/    pinned third-party files (README.md lists them); exempt from the static/js/ rules
 tests/            conftest.py + one test file per module; test_privacy.py (public walk), test_hygiene.py,
                   test_frontend.py (shell, CSP and escaping scans), test_installer_static.py, test_shell_ui.py

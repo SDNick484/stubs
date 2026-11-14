@@ -509,6 +509,30 @@ def admin_to_confirm_confirm():
 
 
 # ==== Task 14: Upcoming and "Did you go?"
+import upcoming  # noqa: E402
+from common import today  # noqa: E402
+
+
+@app.get("/admin/api/did-you-go")
+@editor_required
+def admin_did_you_go():
+    return jsonify(shows=upcoming.due(db(), today()))
+
+
+@app.get("/admin/api/upcoming")
+@editor_required
+def admin_upcoming():
+    return jsonify(shows=upcoming.upcoming(db()))
+
+
+@app.post("/admin/api/did-you-go/<int:show_id>")
+@editor_required
+def admin_did_you_go_resolve(show_id):
+    went = json_body().get("went")
+    if not isinstance(went, bool):
+        raise ApiError(400, "went must be true or false.")
+    upcoming.resolve(db(), show_id, went)
+    return jsonify(ok=True)
 
 
 # ==== Task 15: Merge artists and venues

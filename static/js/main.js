@@ -90,6 +90,9 @@ registerAdminCard("To confirm", { order: 20, render: renderConfirmCard });
 
 
 // ==== Task 14: Upcoming and "Did you go?"
+import { renderComingUpCard, renderDidYouGoCard } from "./didyougo.js";
+registerAdminCard("Did you go?", { order: 10, render: renderDidYouGoCard });
+registerAdminCard("Coming up", { order: 15, render: renderComingUpCard });
 
 
 // ==== Task 15: Merge artists and venues
