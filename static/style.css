@@ -134,6 +134,15 @@ main { max-width: 960px; margin: 0 auto; padding: 0 var(--s4) var(--s5); }
 
 
 /* ==== Task 7: Show page */
+.show-when, .show-where, .show-meta { margin: .2rem 0; }
+.lineup-group h3 { margin: 1rem 0 .3rem; font-size: 1rem; }
+.lineup-list, .sources { list-style: none; margin: 0; padding: 0; }
+.lineup-list li { margin: .2rem 0; }
+.tag-likely { margin-left: .4rem; font-size: .75rem; cursor: help; }
+.rating { margin-left: .4rem; }
+.show-panel { margin: 1.5rem 0; }
+.show-step { display: flex; justify-content: space-between; gap: 1rem; margin: 2rem 0 1rem; }
+.is-disabled { opacity: .4; }
 
 
 /* ==== Task 8: Artist, venue, year and city pages */
