@@ -411,6 +411,56 @@ def person_show_list(person_id):
 
 
 # ==== Task 15: Merge artists and venues
+import merge  # noqa: E402
+from common import json_body as _t15_json_body, text as _t15_text  # noqa: E402
+
+
+def _t15_query():
+    return _t15_text(request.args, "q", 200) or ""
+
+
+def _t15_pair():
+    """{"keep": id, "drop": id} from the body, as ints (not bools, not text)."""
+    data = _t15_json_body()
+    keep, drop = data.get("keep"), data.get("drop")
+    if not all(isinstance(x, int) and not isinstance(x, bool) and 0 < x < 2 ** 63 for x in (keep, drop)):
+        raise ApiError(400, "keep and drop must be ids.")
+    return keep, drop
+
+
+@app.get("/admin/api/artists")
+@editor_required
+def merge_search_artists():
+    """?q= -> up to 20 artists [{"id", "name", "shows"}] whose name or an alias contains q."""
+    return jsonify(merge.search_artists(db(), _t15_query()))
+
+
+@app.get("/admin/api/venues")
+@editor_required
+def merge_search_venues():
+    """?q= -> up to 20 venues [{"id", "name", "city", "region", "country", "shows"}] with a name, current or former,
+    that contains q. The merge screen and the show editor's venue picker (Task 11) both use it."""
+    return jsonify(merge.search_venues(db(), _t15_query()))
+
+
+@app.post("/admin/api/artists/merge")
+@editor_required
+def merge_artists_route():
+    """{"keep", "drop"} -> the kept artist {"id", "name", "shows"} after folding drop into it."""
+    keep, drop = _t15_pair()
+    con = db()
+    merge.merge_artists(con, keep, drop)
+    return jsonify(merge.artist_summary(con, keep))
+
+
+@app.post("/admin/api/venues/merge")
+@editor_required
+def merge_venues_route():
+    """{"keep", "drop"} -> the kept venue (search_venues' shape) after folding drop into it."""
+    keep, drop = _t15_pair()
+    con = db()
+    merge.merge_venues(con, keep, drop)
+    return jsonify(merge.venue_summary(con, keep))
 
 
 # ==== Task 16: Venue coordinates (Nominatim)
