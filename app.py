@@ -486,6 +486,26 @@ def person_show_list(person_id):
 
 
 # ==== Task 13: To-confirm list
+import confirm  # noqa: E402
+
+
+@app.get("/admin/api/to-confirm")
+@editor_required
+def admin_to_confirm():
+    return jsonify(items=confirm.to_confirm(db()))
+
+
+@app.post("/admin/api/to-confirm/confirm")
+@editor_required
+def admin_to_confirm_confirm():
+    data = json_body()
+    kind, item_id = data.get("kind"), data.get("id")
+    if kind not in confirm.KINDS:
+        raise ApiError(400, "kind must be show or lineup.")
+    if not isinstance(item_id, int) or isinstance(item_id, bool):
+        raise ApiError(400, "id must be a number.")
+    confirm.confirm(db(), kind, item_id, text(data, "source_label", 200), text(data, "source_url", 2000))
+    return jsonify(ok=True)
 
 
 # ==== Task 14: Upcoming and "Did you go?"

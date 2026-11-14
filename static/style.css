@@ -167,6 +167,11 @@ main { max-width: 960px; margin: 0 auto; padding: 0 var(--s4) var(--s5); }
 
 
 /* ==== Task 13: To-confirm list */
+.confirm-list { list-style: none; padding: 0; margin: 0; }
+.confirm-item { padding: var(--s3) 0; border-bottom: 1px solid var(--line); }
+.confirm-note { font-style: italic; }
+.confirm-form { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.confirm-form input { flex: 1 1 12em; min-width: 0; min-height: 44px; }
 
 
 /* ==== Task 14: Upcoming and Did you go? */
