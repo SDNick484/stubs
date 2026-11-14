@@ -13,7 +13,7 @@ import settings
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC = os.path.join(ROOT, "static")
 JS_FILES = sorted(glob.glob(os.path.join(STATIC, "js", "*.js")))
-TASKS = range(1, 20)
+TASKS = range(1, 21)
 
 # The only things a template-literal interpolation that builds markup may be: one call to one of these.
 SAFE_CALL = re.compile(r"(esc|fmtDate|render[A-Za-z0-9_]*)\(")
@@ -256,4 +256,4 @@ def test_section_markers_present():
     _in_order(read(os.path.join(STATIC, "style.css")), [f"/* ==== Task {n}:" for n in TASKS])
     for rel in ("app.py", "static/js/main.js", "static/style.css"):
         src = read(os.path.join(ROOT, rel))
-        assert src.count("==== Task 19:") == 1 and "==== Task 20" not in src, rel
+        assert src.count("==== Task 20:") == 1 and "==== Task 21" not in src, rel

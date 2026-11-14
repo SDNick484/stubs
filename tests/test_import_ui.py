@@ -16,7 +16,7 @@ PHONE = {"width": 412, "height": 915}
 CSV = pathlib.Path(__file__).parent / "fixtures" / "concerts.csv"
 
 try:
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import expect, sync_playwright
 except ImportError:  # pragma: no cover - depends on the machine
     if REQUIRED:
         raise
@@ -86,7 +86,7 @@ def test_upload_review_untick_apply(server, browser, con):
     gate = []
     page.route("**/apply", lambda route: gate.append(route))
     page.locator("[data-act=apply]").click()
-    page.wait_for_function("document.querySelector('[data-act=apply]').disabled")
+    expect(page.locator("[data-act=apply]")).to_be_disabled()
     while not gate:
         page.wait_for_timeout(20)
     gate[0].continue_()
