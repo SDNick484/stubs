@@ -333,6 +333,20 @@ main { max-width: 960px; margin: 0 auto; padding: 0 var(--s4) var(--s5); }
 .setlist-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
 .setlist-results { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
 .setlist-result { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2); }
+section.setlist-act + section.setlist-act { margin-top: var(--s4); padding-top: var(--s3); border-top: 1px solid var(--line); }
+.setlist-act-name { margin: 0 0 var(--s1); font-size: var(--fs-md); }
+.setlist-act .setlist-result { margin: 0; }
+.setlist-missing { margin: var(--s4) 0 var(--s2); }
+.setlist-matches { display: grid; gap: var(--s3); margin-top: var(--s2); }
+.setlist-match {
+  margin: 0; padding: var(--s2) var(--s3); display: grid; gap: var(--s1); min-width: 0;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card);
+}
+.setlist-match legend { padding: 0 var(--s1); font-weight: 700; }
+.setlist-option { display: flex; align-items: center; gap: var(--s2); min-height: var(--tap); min-width: 0; }
+.setlist-option input { width: 1.25rem; height: 1.25rem; margin: 0; flex: none; }
+.setlist-option span { min-width: 0; overflow-wrap: anywhere; }
+.setlist-unmatched .setlist-results { margin-top: var(--s1); }
 
 
 /* ==== Task 19: Fetch from a URL */
