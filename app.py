@@ -17,7 +17,7 @@ from flask import Flask, g, jsonify, redirect, request
 from werkzeug.exceptions import HTTPException
 
 import settings
-from common import ApiError
+from common import ApiError, json_body
 from db import close_db, db, init_db
 
 app = Flask(__name__, static_folder=str(settings.APP_DIR / "static"), static_url_path="/static")
@@ -349,6 +349,58 @@ def api_stats():
 
 
 # ==== Task 12: Companions
+import people  # noqa: E402
+
+
+def _need_show(con, show_id):
+    if not con.execute("SELECT 1 FROM show WHERE id = ?", (show_id,)).fetchone():
+        raise ApiError(404, "Not found")
+
+
+@app.get("/admin/api/people")
+@editor_required
+def people_list():
+    return jsonify(people=people.list_people(db()))
+
+
+@app.post("/admin/api/people")
+@editor_required
+def people_create():
+    con = db()
+    name = json_body().get("name")
+    known = {p["id"] for p in people.list_people(con)}
+    pid = people.create_person(con, name)
+    return jsonify(id=pid, name=next(p["name"] for p in people.list_people(con) if p["id"] == pid)), (
+        200 if pid in known else 201)
+
+
+@app.get("/admin/api/shows/<int:show_id>/people")
+@editor_required
+def show_people(show_id):
+    con = db()
+    _need_show(con, show_id)
+    return jsonify(people=people.companions(con, show_id))
+
+
+@app.put("/admin/api/shows/<int:show_id>/people")
+@editor_required
+def show_people_set(show_id):
+    con = db()
+    _need_show(con, show_id)
+    ids = json_body().get("person_ids")
+    if not isinstance(ids, list) or any(type(i) is not int for i in ids):
+        raise ApiError(400, "person_ids must be a list of ids.")
+    people.set_companions(con, show_id, ids)
+    return jsonify(people=people.companions(con, show_id))
+
+
+@app.get("/admin/api/people/<int:person_id>/shows")
+@editor_required
+def person_show_list(person_id):
+    con = db()
+    if not con.execute("SELECT 1 FROM person WHERE id = ?", (person_id,)).fetchone():
+        raise ApiError(404, "Not found")
+    return jsonify(shows=people.person_shows(con, person_id))
 
 
 # ==== Task 13: To-confirm list
