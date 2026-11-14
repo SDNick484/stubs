@@ -99,6 +99,8 @@ registerAdminCard("Not on the map", { order: 40, render: renderMissingCard });
 
 
 // ==== Task 17: Images
+import { renderPicturesPanel } from "./images.js";
+registerShowPanel("Pictures", { order: 10, editorOnly: false, render: renderPicturesPanel });
 
 
 // ==== Task 18: setlist.fm panel

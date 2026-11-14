@@ -10,6 +10,7 @@ different parts of this file."""
 import hmac
 import html
 import json
+import os
 from functools import wraps
 from urllib.parse import urlsplit
 
@@ -436,6 +437,77 @@ def admin_venue_coords(venue_id):
 
 
 # ==== Task 17: Images — posters, photos, stubs
+import images  # noqa: E402
+from flask import send_from_directory  # noqa: E402
+
+
+@app.post("/admin/api/shows/<int:show_id>/images")
+@editor_required
+def upload_image(show_id):
+    """multipart: file, kind (poster|photo|stub), caption (optional), source_url (optional)."""
+    if request.content_length and request.content_length > images.MAX_IMAGE_BYTES + 64 * 1024:
+        raise ApiError(413, "That file is over 8 MB.")
+    upload = request.files.get("file")
+    if upload is None:
+        raise ApiError(400, "Choose an image file.")
+    data = upload.stream.read(images.MAX_IMAGE_BYTES + 1)
+    con = db()
+    iid = images.save_image(con, show_id, request.form.get("kind", ""), data, caption=request.form.get("caption"),
+                            source_url=request.form.get("source_url"))
+    return jsonify(images.get_image(con, iid)), 201
+
+
+@app.get("/api/shows/<int:show_id>/images")
+@public_read
+def public_images(show_id):
+    return jsonify(images.list_images(db(), show_id, editor=is_editor()))
+
+
+@app.get("/admin/api/shows/<int:show_id>/images")
+@editor_required
+def admin_images(show_id):
+    return jsonify(images.list_images(db(), show_id, editor=True))
+
+
+@app.patch("/admin/api/images/<int:image_id>")
+@editor_required
+def patch_image(image_id):
+    data = json_body()
+    con = db()
+    caption = (text(data, "caption", images.MAX_CAPTION) or "") if data.get("caption") is not None else None
+    images.update_image(con, image_id, caption=caption, position=data.get("position"))
+    return jsonify(images.get_image(con, image_id))
+
+
+@app.delete("/admin/api/images/<int:image_id>")
+@editor_required
+def delete_image(image_id):
+    images.delete_image(db(), image_id)
+    return jsonify(ok=True)
+
+
+def _serve_image(name, editor):
+    if not editor and not settings.PUBLIC_VIEW:
+        raise ApiError(404, "Not found")
+    if not images.visible_file(db(), name, editor=editor):
+        raise ApiError(404, "Not found")
+    resp = send_from_directory(settings.IMAGE_DIR, name, mimetype=images.MIME.get(os.path.splitext(name)[1].lower()))
+    resp.headers["Cache-Control"] = "private, max-age=3600"
+    return resp
+
+
+@app.get("/images/<name>")
+def image_file(name):
+    """A file only if this requester may see its row (see images.py); 404 for anything else, a guessed path included."""
+    return _serve_image(name, is_editor())
+
+
+@app.get("/admin/images/<name>")
+@editor_required
+def admin_image_file(name):
+    """The same files for editors under /admin, where Cloudflare Access puts the sign-in."""
+    return _serve_image(name, True)
+
 
 
 # ==== Task 18: setlist.fm panel
