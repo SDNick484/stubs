@@ -264,3 +264,11 @@ main { max-width: 960px; margin: 0 auto; padding: 0 var(--s4) var(--s5); }
 
 
 /* ==== Task 19: Fetch from a URL */
+.fetch-form { display: flex; gap: var(--s2); flex-wrap: wrap; margin: 0 0 var(--s3); }
+.fetch-form input { flex: 1 1 14em; min-width: 0; min-height: var(--tap); padding: 0 var(--s3);
+  background: var(--raised); border: 1px solid var(--line); border-radius: var(--r-card); }
+.fetch-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.fetch-item, .fetch-info { padding: var(--s2) var(--s3); background: var(--raised); border-radius: var(--r-card); }
+.fetch-item { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
+.fetch-done { color: var(--ok); font-weight: 600; }
+.fetch-status:empty { display: none; }

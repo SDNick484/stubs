@@ -765,6 +765,27 @@ def admin_setlistfm_unlink(show_id):
 
 
 # ==== Task 19: Fetch from a URL
+import fetchurl  # noqa: E402
+
+
+@app.post("/admin/api/shows/<int:show_id>/fetch-url")
+@editor_required
+def fetch_url_suggestions(show_id):
+    """{"url"} -> what that page offers the show (fetchurl.suggestions). Fetches through the SSRF guard; writes
+    nothing."""
+    url = text(json_body(), "url", fetchurl.MAX_URL, required=True)
+    return jsonify(fetchurl.suggestions(db(), show_id, url))
+
+
+@app.post("/admin/api/shows/<int:show_id>/fetch-url/apply")
+@editor_required
+def fetch_url_apply(show_id):
+    """{"kind": "poster"|"performer"|"source", "value", "url"} -> 201 with what was added (fetchurl.apply)."""
+    data = json_body()
+    kind = text(data, "kind", 20, required=True)
+    value = text(data, "value", fetchurl.MAX_URL)
+    url = text(data, "url", fetchurl.MAX_URL, required=True)
+    return jsonify(fetchurl.apply(db(), show_id, kind, value, url)), 201
 
 
 init_db()

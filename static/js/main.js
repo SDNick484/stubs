@@ -123,6 +123,7 @@ import "./setlist.js"; // registers the Setlist show panel (order 20)
 
 
 // ==== Task 19: Fetch from a URL
+import "./urlfetch.js"; // registers the editor-only "From a link" show panel (order 50)
 
 
 // ---------------------------------------------------------------- the router (runs after every route is registered)
