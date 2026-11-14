@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3, 6, 10, 12, 15, 16, 17, 18.
+**Status:** Built: Task 1, 2, 3, 4, 6, 10, 12, 15, 16, 17, 18.
 
 ## Commands
 
@@ -93,6 +93,10 @@ images.py         posters, photos, stubs (spec 7.9): MAX_IMAGE_BYTES, sniff_imag
                   delete_image, visible_file (who may see a file); routes in app.py under Task 17
 merge.py          merge_artists, merge_venues (atomic; aliases and former names kept, shows' version bumped),
                   search_artists, search_venues (GET /admin/api/artists|venues?q=, also Task 11's venue picker)
+imports.py        import batches (spec 7.3 steps 2-4): validate_proposal, match, create_batch, batch_view (the review
+                  shape Task 5 reads), update_row, apply_batch (one IMMEDIATE transaction; a second apply is 409),
+                  discard_batch, pending_batches; routes in app.py under Task 4 at /admin/api/imports and
+                  /admin/api/import-rows/<id>
 static/           index.html (the shell; / and /admin fill in __APP_NAME__), style.css (markers `/* ==== Task N */`),
                   manifest.json (GET /manifest.json sets name and short_name), icon.svg, robots.txt
 static/js/        hash-routed ES modules, no build step: main.js (router, header, document.title; route(),

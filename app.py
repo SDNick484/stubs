@@ -222,6 +222,87 @@ def admin_session_info():
 
 
 # ==== Task 4: Import batches — match, review, apply, import API
+# Editor-only (never under /api/). Upload or post a batch, read it back for review, tick or edit rows, then apply
+# (one transaction; a second apply is 409) or discard. Batch and row shapes: imports.batch_view.
+import imports  # noqa: E402
+from common import today as _t4_today  # noqa: E402
+from csvimport import parse_csv  # noqa: E402
+
+
+@app.post("/admin/api/imports/csv")
+@editor_required
+def import_csv():
+    """multipart `file` (the concerts CSV) -> 201 {"id", "counts"}: a pending batch labelled "CSV import <today>",
+    which becomes a source on every show it creates."""
+    if request.content_length and request.content_length > imports.MAX_CSV_BYTES + 64 * 1024:
+        raise ApiError(413, "That file is too large.")
+    upload = request.files.get("file")
+    if upload is None:
+        raise ApiError(400, "Choose a CSV file.")
+    data = upload.stream.read(imports.MAX_CSV_BYTES + 1)
+    if len(data) > imports.MAX_CSV_BYTES:
+        raise ApiError(413, "That file is too large.")
+    try:
+        proposals = parse_csv(data)
+    except ValueError as e:
+        raise ApiError(400, str(e)) from None
+    con = db()
+    batch_id = imports.create_batch(con, "csv", f"CSV import {_t4_today()}", proposals)
+    return jsonify(id=batch_id, counts=imports.batch_view(con, batch_id)["counts"]), 201
+
+
+@app.post("/admin/api/imports")
+@editor_required
+def import_api_batch():
+    """{"label": str (default "API import <today>"), "shows": [Proposal, ...]} -> 201 {"id", "counts"}. A bad
+    proposal is 400 "Row N: ..." and stores nothing."""
+    data = json_body()
+    label = data.get("label")
+    if label is None:
+        label = f"API import {_t4_today()}"
+    con = db()
+    batch_id = imports.create_batch(con, "api", label, data.get("shows"))
+    return jsonify(id=batch_id, counts=imports.batch_view(con, batch_id)["counts"]), 201
+
+
+@app.get("/admin/api/imports")
+@editor_required
+def import_list():
+    """{"batches": [{"id", "origin", "label", "status", "created_at", "counts"}]}: pending batches, newest first."""
+    return jsonify(batches=imports.pending_batches(db()))
+
+
+@app.get("/admin/api/imports/<int:batch_id>")
+@editor_required
+def import_view(batch_id):
+    return jsonify(imports.batch_view(db(), batch_id))
+
+
+@app.patch("/admin/api/import-rows/<int:row_id>")
+@editor_required
+def import_row_update(row_id):
+    """{"parsed"?: Proposal, "include"?: bool} -> the row as in batch_view. A new `parsed` is matched again."""
+    data = json_body()
+    if "parsed" not in data and "include" not in data:
+        raise ApiError(400, "Send parsed or include.")
+    if "parsed" in data and data["parsed"] is None:
+        raise ApiError(400, "parsed must be a show.")
+    return jsonify(imports.update_row(db(), row_id, parsed=data.get("parsed"), include=data.get("include")))
+
+
+@app.post("/admin/api/imports/<int:batch_id>/apply")
+@editor_required
+def import_apply(batch_id):
+    """-> {"created": n}; 409 {"error": "This import was already applied."} on a second apply."""
+    return jsonify(imports.apply_batch(db(), batch_id))
+
+
+@app.post("/admin/api/imports/<int:batch_id>/discard")
+@editor_required
+def import_discard(batch_id):
+    imports.discard_batch(db(), batch_id)
+    return jsonify(ok=True)
+
 
 
 # ==== Task 5: Import screens
