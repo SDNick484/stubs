@@ -153,6 +153,12 @@ main { max-width: 960px; margin: 0 auto; padding: 0 var(--s4) var(--s5); }
 
 
 /* ==== Task 9: Home — map, year strip and list */
+.year-strip { display: flex; gap: .4rem; overflow-x: auto; padding: 0 0 .6rem; margin: 0 0 .6rem; -webkit-overflow-scrolling: touch; }
+.year-pill { flex: none; padding: .3rem .75rem; border: 1px solid currentColor; border-radius: 999px; text-decoration: none; opacity: .75; }
+.year-pill.is-selected { opacity: 1; font-weight: 600; background: rgba(127, 127, 127, .25); }
+.map { height: 55vh; min-height: 260px; max-width: 100%; border-radius: 6px; margin: 0 0 .5rem; background: rgba(127, 127, 127, .15); }
+.map-note p { margin: 0 0 1rem; }
+.map-popup ul { list-style: none; margin: .3rem 0 0; padding: 0; }
 
 
 /* ==== Task 10: Stats */

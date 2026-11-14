@@ -36,10 +36,7 @@ const renderLink = l => `<a class="nav-link" href="${esc(l.href)}">${esc(l.label
 const renderNav = (session, list) => list.filter(l => session.editor || !l.editorOnly).map(renderLink).join("");
 const renderFoot = session => (session.editor ? "" : `<a href="/admin#/admin">Editor sign-in</a>`);
 
-// ==== Task 1: Scaffold — the placeholder home and #/admin
-route("", ({ view }) => {
-  view.innerHTML = `<h1>Shows</h1><p class="muted">Nothing here yet.</p>`;
-});
+// ==== Task 1: Scaffold — #/admin (the placeholder home moved to Task 9)
 route("admin", renderAdmin);
 headerLink("#/admin", "Admin", { editorOnly: true, order: 90 });
 
@@ -73,6 +70,8 @@ route("city/:country/:region/:city", showCity);
 
 
 // ==== Task 9: Home — map, year strip and list
+import { showHome } from "./home.js";
+route("", showHome);
 
 
 // ==== Task 10: Stats

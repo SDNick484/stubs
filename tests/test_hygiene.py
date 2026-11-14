@@ -1,7 +1,8 @@
 """No personal data in tracked files (spec sections 2 and 3). Walks `git ls-files` and fails on:
 
 - an email address whose domain is not example.com (GitHub noreply addresses are allowed, for commit authors);
-- a URL whose host is not on the ALLOWED list;
+- a URL whose host is not on the ALLOWED list (except in static/vendor/, whose pinned upstream files cite their
+  own bug trackers and may not be edited);
 - the owner's hostname shape: `concerts.` on any domain but example.com, with or without a URL around it;
 - a private or carrier-grade LAN address other than the documentation ones the tests use;
 - a tracked *.csv outside tests/fixtures/ (the owner's real concert file must never be committed);
@@ -82,7 +83,8 @@ def find_problems(rel, body, denied=()):
     problems = [f"{rel}: email {m.group(0)}" for m in EMAIL.finditer(body)
                 if not (m.group(1).lower() == "example.com" or m.group(1).lower().endswith(".example.com")
                         or m.group(1).lower() == "users.noreply.github.com")]
-    problems += [f"{rel}: url host {m.group(1)}" for m in URL.finditer(body) if not allowed_domain(m.group(1))]
+    if not rel.replace(os.sep, "/").startswith("static/vendor/"):
+        problems += [f"{rel}: url host {m.group(1)}" for m in URL.finditer(body) if not allowed_domain(m.group(1))]
     problems += [f"{rel}: owner hostname {m.group(0)}" for m in OWNER_HOST.finditer(body)]
     problems += [f"{rel}: LAN address {m.group(1)}" for m in IPV4.finditer(body) if lan_address(m.group(1))]
     low = body.lower()
@@ -122,6 +124,8 @@ def test_the_check_catches_what_it_should():
     assert find_problems("x", "see https://nas." + real + "/x")
     assert find_problems("x", "served at " + "concerts" + "." + real)
     assert find_problems("x", "Alex lives here", denied=["alex"])
+    assert not find_problems("static/vendor/lib/x.css", "see https:" + "//bugs.lib-upstream.org/1")
+    assert find_problems("static/vendor/lib/x.css", "served at " + "concerts" + "." + real)
     assert find_problems("x", "ssh root@" + "192.168." + "7.7")
     assert find_problems("x", "http:" + "//10.1" + ".2.3:8080/")
     assert find_problems("x", "tailnet " + "100.101" + ".1.2")

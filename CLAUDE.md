@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3, 4, 6, 7, 8, 10, 12, 13, 14, 15, 16, 17, 18.
+**Status:** Built: Task 1, 2, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18.
 
 ## Commands
 
@@ -101,6 +101,8 @@ confirm.py        the to-confirm list (Task 13): to_confirm(con), confirm(con, k
                   routes GET /admin/api/to-confirm, POST /admin/api/to-confirm/confirm in app.py
 upcoming.py       upcoming shows (Task 14): due(con, today), upcoming(con), resolve(con, show_id, went) (went -> attended,
                   version bumped; not went -> records.delete_show; 409 if not upcoming); routes in app.py
+map.py            venue_points(con, year=None), unmapped_count(con, year=None): attended shows grouped by venue
+                  (coordinates only) for GET /api/map?year= (Task 9)
 static/           index.html (the shell; / and /admin fill in __APP_NAME__), style.css (markers `/* ==== Task N */`),
                   manifest.json (GET /manifest.json sets name and short_name), icon.svg, robots.txt
 static/js/        hash-routed ES modules, no build step: main.js (router, header, document.title; route(),
@@ -119,7 +121,10 @@ static/js/        hash-routed ES modules, no build step: main.js (router, header
   show.js         #/show/<id>: renderLineup, renderSources, renderShow, drawPanels (each panel isolated), renderShowPage
   pages.js        #/artist/:id, #/venue/:id, #/year/:yyyy, #/city/:country/:region/:city: renderArtistSummary,
                   renderVenueSummary
-static/vendor/    pinned third-party files (README.md lists them); exempt from the static/js/ rules
+  home.js         #/: map, year strip, show list; renderYearStrip, renderUnmapped, renderPopup
+  leaflet-loader.js  loadLeaflet(): loads the vendored Leaflet and markercluster once, resolves with window.L
+static/vendor/    pinned third-party files (README.md lists them): leaflet/ 1.9.4 (BSD-2-Clause),
+                  markercluster/ 1.5.3 (MIT); exempt from the static/js/ rules
 tests/            conftest.py + one test file per module; test_privacy.py (public walk), test_hygiene.py,
                   test_frontend.py (shell, CSP and escaping scans), test_installer_static.py, test_shell_ui.py
                   (Playwright), frontend.test.mjs (node --test)
