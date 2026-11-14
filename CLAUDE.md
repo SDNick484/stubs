@@ -70,8 +70,9 @@ app.py            Flask object, access (access_identity, lan_host, cross_site, i
                   /manifest.json, /robots.txt, /healthz, /api/session, /admin/api/session. Section markers
                   `# ==== Task N: <name>` for each later task.
 settings.py       environment config, read once at import after /etc/conf.d/stubs and ./.env (keys not already set)
-db.py             SCHEMA (v1, spec section 5), SCHEMA_VERSION, connect(), transaction(), migrate(), db() (per request,
-                  in g), close_db(), init_db()
+db.py             SCHEMA (v2, spec section 5), SCHEMA_VERSION, connect(), transaction(), migrate() (MIGRATIONS: _to_v1,
+                  _to_v2 moves v1's per-show setlist_link onto lineup entries), db() (per request, in g), close_db(),
+                  init_db()
 common.py         ApiError, json_body, text, norm, venue_norm, parse_date, period_end, today
 csvimport.py      parse_csv(bytes) -> Proposals (UTF-8/BOM or cp1252, any CRLF), split_billing, parse_city, US_STATES,
                   CA_PROVINCES (spec 7.3 step 1); tests/fixtures/concerts.csv is its invented sample, reused by Task 4
@@ -87,8 +88,12 @@ stats.py          stats(con): totals, shows per year, top artists/venues/cities 
 people.py         companions (editor-only): list_people, create_person, companions, set_companions, person_shows
 geocode.py        Nominatim lookup (1 req/s, UA, 10 s), locate_venue, set_coords, missing_coords (Task 16); its
                   front end is static/js/venues.js (#/admin/venues, the "Not on the map" card)
-setlistfm.py      setlist.fm client (Task 18): search(artist, date), fetch_setlist(id) (1 h in-memory cache, never stored),
-                  link/unlink/linked (setlist_link: id and url only), panel(con, show_id), Unavailable. Routes in app.py.
+setlistfm.py      setlist.fm client (Task 18, per act since #40): search(artist, date), search_venue(venue, city, date),
+                  find_for_show(con, show_id) (venue + date, matched to the lineup through resolve_artist; links
+                  nothing), fetch_setlist(id) (1 h in-memory cache, never stored), link/unlink/linked(con, lineup_id)
+                  (setlist_link: id and url only), panel(con, show_id, editor=) (each linked act, lineup order),
+                  Unavailable. Routes in app.py: GET .../shows/<id>/setlist, GET /admin/api/shows/<id>/setlistfm/search
+                  [?lineup_id=], PUT/DELETE /admin/api/shows/<id>/lineup/<lineup_id>/setlistfm
 images.py         posters, photos, stubs (spec 7.9): MAX_IMAGE_BYTES, sniff_image, save_image, list_images, update_image,
                   delete_image, visible_file (who may see a file); routes in app.py under Task 17
 merge.py          merge_artists, merge_venues (atomic; aliases and former names kept, shows' version bumped),
@@ -124,7 +129,9 @@ static/js/        hash-routed ES modules, no build step: main.js (router, header
   venueedit.js    #/admin/venue/<id>/edit and the "Edit venue" link on the venue page under /admin: renderNameRow,
                   renderVenueForm, changedFields
   venues.js       #/admin/venues and the "Not on the map" admin card (order 40)
-  setlist.js      the Setlist show panel (order 20)
+  setlist.js      the Setlist show panel (order 20): each linked act's set; editors get Find setlists (confirm the
+                  ticked acts) and Find per act. renderPanelBody, renderAct, renderShowMatches, defaultPick,
+                  renderResults
   images.js       the Pictures show panel (order 10): groupImages, renderPictures, renderPicturesPanel
   merge.js        #/admin/merge: renderMergeConfirm, renderPick
   confirm.js      #/admin/confirm and the To confirm admin card (order 20): renderConfirmItem, renderConfirmPage,
@@ -176,13 +183,14 @@ list and the init script's `export` line (`tests/test_installer_static.py` check
 - Route-free logic lives in sibling modules that take a `sqlite3.Connection` and never import `app`; routes call
   `db()`. Connections are autocommit: wrap anything that must be atomic in `with db.transaction(con):` (nests as a
   savepoint).
-- Schema v1 decisions: names match through `artist.norm` (UNIQUE) and `artist_alias.norm`; every name a venue has had
-  is a `venue_name` row (`UNIQUE(norm, venue_id)`, norm = `venue_norm`), the current one included. `show.date` is
-  `YYYY`, `YYYY-MM` or `YYYY-MM-DD` with `date_precision` and `sort_date` (first day of the period) from
-  `common.parse_date`. `ON DELETE CASCADE` from `lineup`, `source`, `show_person`, `image`, `setlist_link` to `show`,
-  from `source` to `lineup`, and from `import_row` to `import_batch`; `import_row.match_show_id` is set to NULL when
-  its show is deleted. Artists, venues, runs and people are never cascaded: a venue or artist still in use can't be
-  deleted (merge first). Timestamps are SQLite `CURRENT_TIMESTAMP` text.
+- Schema decisions (v1, plus v2's per-act `setlist_link`): names match through `artist.norm` (UNIQUE) and
+  `artist_alias.norm`; every name a venue has had is a `venue_name` row (`UNIQUE(norm, venue_id)`, norm =
+  `venue_norm`), the current one included. `show.date` is `YYYY`, `YYYY-MM` or `YYYY-MM-DD` with `date_precision` and
+  `sort_date` (first day of the period) from `common.parse_date`. `ON DELETE CASCADE` from `lineup`, `source`,
+  `show_person`, `image` to `show`, from `source` and `setlist_link` (one per lineup entry, schema v2) to `lineup`,
+  and from `import_row` to `import_batch`; `import_row.match_show_id` is set to NULL when its show is deleted.
+  Artists, venues, runs and people are never cascaded: a venue or artist still in use can't be deleted (merge first).
+  Timestamps are SQLite `CURRENT_TIMESTAMP` text.
 - Access (`app.py`): `access_identity()` is `"api-key"` (`STUBS_API_KEY` as `X-API-Key` or `Authorization: Bearer`),
   `"read-key"` (`STUBS_READ_KEY`: editor reads, no writes), the email of a Cloudflare Access JWT
   (`Cf-Access-Jwt-Assertion`, RS256, audience `CF_AUD`, issuer `https://<CF_TEAM_DOMAIN>`) that is in

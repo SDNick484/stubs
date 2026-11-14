@@ -99,7 +99,7 @@ an editor/public split).
 ## 5. Data model
 
 All dates are ISO strings; timestamps are `created_at`/`updated_at` text as in Matinee. Names are matched through a
-normalized form `norm()` (section 7.2). Schema v1:
+normalized form `norm()` (section 7.2). Schema v2 (v1 had one `setlist_link` per show; see below):
 
 - `meta(k, v)`: `schema_version`.
 - `artist(id, name, norm, created_at, updated_at)`, `UNIQUE(norm)`.
@@ -126,8 +126,12 @@ normalized form `norm()` (section 7.2). Schema v1:
   "CSV import 2026-11-14").
 - `person(id, name, created_at)` and `show_person(show_id, person_id)`: companions.
 - `image(id, show_id, kind, file, caption, source_url, position, created_at)`; `kind` ∈ `poster`, `photo`, `stub`.
-- `setlist_link(show_id PRIMARY KEY, setlistfm_id, url)`: only the setlist.fm identifier and link the owner picked;
-  never song data.
+- `setlist_link(lineup_id PRIMARY KEY, setlistfm_id, url)`: one per lineup entry, so every act on the bill can have
+  its own setlist; only the setlist.fm identifier and link the owner picked, never song data. `ON DELETE CASCADE`
+  from `lineup`: removing an act from the lineup drops its link. An artist merge that folds two entries on one show
+  into one keeps the kept entry's link, else takes the dropped entry's. (Schema v1 had `show_id PRIMARY KEY`, one per
+  show; the v2 step moved each link onto its show's headlining entry: the lowest-position headliner, else
+  coheadliner, else the lowest position of any role; a link on a show with no lineup was dropped and logged.)
 - `import_batch(id, origin, label, status, created_at, applied_at)`: `origin` ∈ `csv`, `api`; `status` ∈ `pending`,
   `applied`, `discarded`.
 - `import_row(id, batch_id, row_no, raw, parsed, verdict, match_show_id, reason, include)`: `raw` is the row as
@@ -263,10 +267,17 @@ Show rating 1–5 and an optional 1–5 per lineup entry. Editor-only. Stats do 
 
 ### 7.11 setlist.fm panel
 
-With `SETLISTFM_API_KEY` set, an editor can "Find on setlist.fm": the app searches by headliner and date and offers
-the matches; the editor picks one and the app stores only its id and URL (`setlist_link`). Viewing the show fetches
-the setlist live (in-memory cache, at most one hour) and shows it with setlist.fm's attribution link (followable, no
-`nofollow`). No key, a miss, an error or a timeout show "Setlist unavailable" with the link if one is stored.
+Links are per lineup entry: every act on the bill can have its own setlist. With `SETLISTFM_API_KEY` set, an editor
+can "Find setlists" for the whole show: the app searches setlist.fm by the show's date and venue (the name on the
+ticket, `venue_label`, and the venue's current name if that is a different name, each with the city), matches each
+result's artist to a lineup entry through `records.resolve_artist` (so aliases count), and offers per act the
+matching setlists, plus, listed but never linked, the results that match no one on the lineup (adding the act is the
+Edit panel's job). Nothing is linked until the editor confirms the acts they tick. Each act also has a "Find" that
+searches by its artist's name and the date. The app stores only each picked setlist's id and URL (`setlist_link`).
+Viewing the show fetches each linked act's setlist live, one request after another (in-memory cache, at most one
+hour), and shows them in lineup order under each act's name, each with its own setlist.fm attribution link
+(followable, no `nofollow`). No key, a miss, an error or a timeout show that act's set as "Setlist unavailable" with
+its stored link, and never hide the other acts' sets.
 
 ### 7.12 Fetch from a URL
 
