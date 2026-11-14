@@ -27,8 +27,10 @@ IPV4 = re.compile(r"(?<![\d.])(\d{1,3}(?:\.\d{1,3}){3})(?![\d.])")
 ALLOWED = ("example.com", "example.org", "noreply.github.com", "github.com", "githubusercontent.com", "cloudflare.com",
            "cloudflareaccess.com", "openstreetmap.org", "setlist.fm", "schema.org", "www.w3.org", "leafletjs.com",
            "claude.com", "claude.ai", "127.0.0.1", "localhost")
-# 192.168.1.100 is the spec's invented LAN host; 10.0.0.5, 169.254.169.254 and 0.0.0.0 are SSRF test targets.
-ALLOWED_IPS = {"192.168.1.100", "10.0.0.5", "169.254.169.254", "127.0.0.1", "0.0.0.0"}
+# 192.168.1.100 is the spec's invented LAN host; 10.0.0.5, 169.254.169.254 and 0.0.0.0 are SSRF test targets, and so
+# are 172.16.0.1 and 100.64.0.1 (the first address of the 172.16/12 private and 100.64/10 shared ranges, which the URL
+# fetcher's guard must refuse: tests/test_fetchurl.py, Task 19).
+ALLOWED_IPS = {"192.168.1.100", "10.0.0.5", "169.254.169.254", "127.0.0.1", "0.0.0.0", "172.16.0.1", "100.64.0.1"}
 SSRF_HOSTS = {"0x7f.1"}  # loopback written in hex, a test target of the URL fetcher (Task 19)
 DOC_NETS = [ipaddress.ip_network(n) for n in ("192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24")]
 LAN_NETS = [ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10")]
