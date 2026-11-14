@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3.
+**Status:** Built: Task 1, 2, 3, 6.
 
 ## Commands
 
@@ -77,6 +77,12 @@ csvimport.py      parse_csv(bytes) -> Proposals (UTF-8/BOM or cp1252, any CRLF),
                   CA_PROVINCES (spec 7.3 step 1); tests/fixtures/concerts.csv is its invented sample, reused by Task 4
 records.py        write-side core taking a Connection: resolve_artist, get_or_create_artist/venue/run, find_venue,
                   create_show, add_lineup_entry, add_source, delete_show (unlinks image files). Bad input is ApiError
+browse.py         the browse reads (Task 6): show_row (the Show row contract, from a SHOW_SELECT row), list_shows,
+                  show_detail, artist_detail, venue_detail, years, city_detail; each served at /api/ (editor=False,
+                  whoever asks) and /admin/api/ (editor=True). Public: attended shows only, no editor-only field;
+                  an upcoming show, and an artist, venue or city with no attended show, is None -> 404 "Not found".
+                  Lists newest first (editors' upcoming shows first). City paths: /api/cities/<country>/<region>/<city>,
+                  a missing country or region written "-" (/api/cities/FR/-/Lyon), matched case-insensitively
 static/           index.html (the shell; / and /admin fill in __APP_NAME__), style.css (markers `/* ==== Task N */`),
                   manifest.json (GET /manifest.json sets name and short_name), icon.svg, robots.txt
 static/js/        hash-routed ES modules, no build step: main.js (router, header, document.title; route(),

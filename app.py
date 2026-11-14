@@ -227,6 +227,103 @@ def admin_session_info():
 
 
 # ==== Task 6: Browse API — shows, artists, venues, years, cities
+# Each read twice: /api/ is the public view whoever asks (editor=False), /admin/api/ the editor's (editor=True).
+import browse  # noqa: E402
+
+
+def _int_arg(name):
+    """A whole-number query parameter, None when absent or empty, 400 otherwise."""
+    raw = (request.args.get(name) or "").strip()
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        raise ApiError(400, f"{name} must be a whole number.") from None
+
+
+def _found(data):
+    if data is None:
+        raise ApiError(404, "Not found")
+    return jsonify(data)
+
+
+def _shows(editor):
+    return jsonify(browse.list_shows(db(), editor=editor, year=_int_arg("year"), artist_id=_int_arg("artist_id"),
+                                     venue_id=_int_arg("venue_id"), city=(request.args.get("city") or "").strip() or None))
+
+
+@app.get("/api/shows")
+@public_read
+def api_shows():
+    return _shows(False)
+
+
+@app.get("/admin/api/shows")
+@editor_required
+def admin_api_shows():
+    return _shows(True)
+
+
+@app.get("/api/shows/<int:show_id>")
+@public_read
+def api_show(show_id):
+    return _found(browse.show_detail(db(), show_id, editor=False))
+
+
+@app.get("/admin/api/shows/<int:show_id>")
+@editor_required
+def admin_api_show(show_id):
+    return _found(browse.show_detail(db(), show_id, editor=True))
+
+
+@app.get("/api/artists/<int:artist_id>")
+@public_read
+def api_artist(artist_id):
+    return _found(browse.artist_detail(db(), artist_id, editor=False))
+
+
+@app.get("/admin/api/artists/<int:artist_id>")
+@editor_required
+def admin_api_artist(artist_id):
+    return _found(browse.artist_detail(db(), artist_id, editor=True))
+
+
+@app.get("/api/venues/<int:venue_id>")
+@public_read
+def api_venue(venue_id):
+    return _found(browse.venue_detail(db(), venue_id, editor=False))
+
+
+@app.get("/admin/api/venues/<int:venue_id>")
+@editor_required
+def admin_api_venue(venue_id):
+    return _found(browse.venue_detail(db(), venue_id, editor=True))
+
+
+@app.get("/api/years")
+@public_read
+def api_years():
+    return jsonify(browse.years(db(), editor=False))
+
+
+@app.get("/admin/api/years")
+@editor_required
+def admin_api_years():
+    return jsonify(browse.years(db(), editor=True))
+
+
+@app.get("/api/cities/<country>/<region>/<city>")
+@public_read
+def api_city(country, region, city):
+    """A missing country or region is "-" in the path: /api/cities/FR/-/Lyon."""
+    return _found(browse.city_detail(db(), country, region, city, editor=False))
+
+
+@app.get("/admin/api/cities/<country>/<region>/<city>")
+@editor_required
+def admin_api_city(country, region, city):
+    return _found(browse.city_detail(db(), country, region, city, editor=True))
 
 
 # ==== Task 7: Show page
