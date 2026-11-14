@@ -413,6 +413,26 @@ def person_show_list(person_id):
 
 
 # ==== Task 16: Venue coordinates (Nominatim)
+import geocode  # noqa: E402
+
+
+@app.get("/admin/api/venues/missing-coords")
+@editor_required
+def admin_venues_missing_coords():
+    return jsonify(venues=geocode.missing_coords(db()))
+
+
+@app.post("/admin/api/venues/<int:venue_id>/locate")
+@editor_required
+def admin_venue_locate(venue_id):
+    return jsonify(geocode.locate_venue(db(), venue_id))
+
+
+@app.put("/admin/api/venues/<int:venue_id>/coords")
+@editor_required
+def admin_venue_coords(venue_id):
+    data = json_body()
+    return jsonify(geocode.set_coords(db(), venue_id, data.get("lat"), data.get("lon")))
 
 
 # ==== Task 17: Images — posters, photos, stubs

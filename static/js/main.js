@@ -93,6 +93,9 @@ registerShowPanel("With", { order: 40, editorOnly: true, render: renderWithPanel
 
 
 // ==== Task 16: Venue coordinates
+import { renderMissingCard, renderVenuesPage } from "./venues.js";
+route("admin/venues", renderVenuesPage);
+registerAdminCard("Not on the map", { order: 40, render: renderMissingCard });
 
 
 // ==== Task 17: Images
