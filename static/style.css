@@ -187,6 +187,21 @@ main { max-width: 960px; margin: 0 auto; padding: 0 var(--s4) var(--s5); }
 
 
 /* ==== Task 17: Images */
+.pic-hero { margin: 0 0 var(--s3); }
+.pic-hero .pic img { max-height: 70vh; object-fit: contain; background: var(--card); }
+.pic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s3); }
+.pic { margin: 0; display: grid; gap: var(--s2); align-content: start; }
+.pic img { display: block; width: 100%; height: auto; border-radius: var(--r-card); border: 1px solid var(--line); }
+.pic figcaption { color: var(--ink-2); font-size: var(--fs-sm); }
+.pic-actions, .pic-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.pic-actions .btn, .pic-confirm .btn, .pic-caption-form .btn { padding: 0 var(--s3); }
+.pic-upload, .pic-caption-form { display: grid; gap: var(--s2); margin-top: var(--s4); }
+.pic-caption-form { margin-top: 0; }
+.pic-upload label, .pic-caption-form label { display: grid; gap: var(--s1); color: var(--ink-2); font-size: var(--fs-sm); }
+.pic-upload input, .pic-upload select, .pic-caption-form input {
+  min-height: var(--tap); padding: var(--s2) var(--s3); background: var(--raised); border: 1px solid var(--line);
+  border-radius: var(--r-card); color: var(--ink);
+}
 
 
 /* ==== Task 18: setlist.fm panel */
