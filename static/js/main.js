@@ -84,6 +84,9 @@ registerShowPanel("With", { order: 40, editorOnly: true, render: renderWithPanel
 
 
 // ==== Task 13: To-confirm list
+import { renderConfirmCard, renderConfirmPage } from "./confirm.js";
+route("admin/confirm", renderConfirmPage);
+registerAdminCard("To confirm", { order: 20, render: renderConfirmCard });
 
 
 // ==== Task 14: Upcoming and "Did you go?"
