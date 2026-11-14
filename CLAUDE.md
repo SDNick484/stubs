@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1.
+**Status:** Built: Task 1, 3.
 
 ## Commands
 
@@ -73,6 +73,8 @@ settings.py       environment config, read once at import after /etc/conf.d/stub
 db.py             SCHEMA (v1, spec section 5), SCHEMA_VERSION, connect(), transaction(), migrate(), db() (per request,
                   in g), close_db(), init_db()
 common.py         ApiError, json_body, text, norm, venue_norm, parse_date, period_end, today
+csvimport.py      parse_csv(bytes) -> Proposals (UTF-8/BOM or cp1252, any CRLF), split_billing, parse_city, US_STATES,
+                  CA_PROVINCES (spec 7.3 step 1); tests/fixtures/concerts.csv is its invented sample, reused by Task 4
 static/           index.html (the shell; / and /admin fill in __APP_NAME__), style.css (markers `/* ==== Task N */`),
                   manifest.json (GET /manifest.json sets name and short_name), icon.svg, robots.txt
 static/js/        hash-routed ES modules, no build step: main.js (router, header, document.title; route(),
