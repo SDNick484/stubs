@@ -108,6 +108,51 @@ def test_same_show_merge_keeps_the_kept_entry_and_fills_a_missing_rating(con):
         ("opener", 1, "confirmed", None, 4)
 
 
+def set_link(con, lineup_id, setlist_id):
+    con.execute("INSERT INTO setlist_link (lineup_id, setlistfm_id, url) VALUES (?, ?, ?)",
+                (lineup_id, setlist_id, f"https://www.setlist.fm/setlist/x/2009/y-{setlist_id}.html"))
+
+
+def link_of(con, lineup_id):
+    row = con.execute("SELECT setlistfm_id FROM setlist_link WHERE lineup_id = ?", (lineup_id,)).fetchone()
+    return row[0] if row else None
+
+
+def test_same_show_merge_keeps_the_kept_entrys_setlist_link(con):
+    v = mk_venue(con, "Summit Pavilion", "Concord")
+    s = mk_show(con, "Cold Harbor", "2009-06-20", v, lineup=(("Cold Harbor", "headliner"), ("Cold Harbour", "opener")))
+    keep, drop = mk_artist(con, "Cold Harbor"), mk_artist(con, "Cold Harbour")
+    kept, dropped = entry(con, s, keep)["id"], entry(con, s, drop)["id"]
+    set_link(con, kept, "aaa111")
+    set_link(con, dropped, "bbb222")
+
+    merge_artists(con, keep, drop)
+
+    assert link_of(con, kept) == "aaa111"
+    assert con.execute("SELECT COUNT(*) FROM setlist_link").fetchone()[0] == 1  # the dropped entry's link went with it
+
+
+def test_same_show_merge_takes_the_dropped_entrys_link_when_the_kept_has_none(con):
+    v = mk_venue(con, "Summit Pavilion", "Concord")
+    s = mk_show(con, "Cold Harbor", "2009-06-20", v,
+                lineup=(("Cold Harbor", "headliner"), ("Cold Harbour", "opener"), ("Ninefold", "opener")))
+    other = mk_show(con, "Cold Harbour", "2010-01-02", v)
+    keep, drop = mk_artist(con, "Cold Harbor"), mk_artist(con, "Cold Harbour")
+    kept, dropped = entry(con, s, keep)["id"], entry(con, s, drop)["id"]
+    ninefold = entry(con, s, mk_artist(con, "Ninefold"))["id"]
+    moved = entry(con, other, drop)["id"]
+    set_link(con, dropped, "bbb222")
+    set_link(con, ninefold, "ccc333")
+    set_link(con, moved, "ddd444")
+
+    merge_artists(con, keep, drop)
+
+    assert link_of(con, kept) == "bbb222"
+    assert link_of(con, ninefold) == "ccc333"
+    assert entry(con, other, keep)["id"] == moved and link_of(con, moved) == "ddd444"  # an entry that only moved keeps its link
+    assert con.execute("SELECT COUNT(*) FROM setlist_link").fetchone()[0] == 3
+
+
 def test_merge_artists_bumps_the_version_of_changed_shows_only(con):
     v = mk_venue(con, "Granite Hall")
     moved = mk_show(con, "Cold Harbour", "2009-06-20", v)
