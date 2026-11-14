@@ -69,6 +69,9 @@ headerLink("#/admin", "Admin", { editorOnly: true, order: 90 });
 
 
 // ==== Task 10: Stats
+import { showStats } from "./stats.js";
+route("stats", showStats);
+headerLink("#/stats", "Stats", { order: 60 });
 
 
 // ==== Task 11: Show editing
