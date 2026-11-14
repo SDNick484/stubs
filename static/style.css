@@ -175,6 +175,11 @@ main { max-width: 960px; margin: 0 auto; padding: 0 var(--s4) var(--s5); }
 
 
 /* ==== Task 14: Upcoming and Did you go? */
+.dyg-list { list-style: none; padding: 0; display: grid; gap: var(--s3); }
+.dyg-row { display: grid; gap: var(--s2); }
+.dyg-label { display: grid; gap: 0; }
+.dyg-actions, .dyg-confirm { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
+.dyg-msg:empty { display: none; }
 
 
 /* ==== Task 15: Merge artists and venues */
