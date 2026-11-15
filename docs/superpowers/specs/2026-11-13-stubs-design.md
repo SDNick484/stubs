@@ -99,11 +99,13 @@ an editor/public split).
 ## 5. Data model
 
 All dates are ISO strings; timestamps are `created_at`/`updated_at` text as in Matinee. Names are matched through a
-normalized form `norm()` (section 7.2). Schema v3 (v1 had one `setlist_link` per show, see below; v3 added the stored
-setlists, the last four tables):
+normalized form `norm()` (section 7.2). Schema v4 (v1 had one `setlist_link` per show, see below; v3 added the stored
+setlists, the last four tables; v4 added `artist.mbid` and `artist.mb_disambiguation`):
 
 - `meta(k, v)`: `schema_version`.
-- `artist(id, name, norm, created_at, updated_at)`, `UNIQUE(norm)`.
+- `artist(id, name, norm, created_at, updated_at, mbid, mb_disambiguation)`, `UNIQUE(norm)`. `mbid` is the artist's
+  MusicBrainz ID (a lowercase UUID; NULL when unlinked, unique where set) and `mb_disambiguation` MusicBrainz's note
+  ("the UK band"), shown to editors when picking. MusicBrainz's core data is CC0, so both are stored.
 - `artist_alias(norm PRIMARY KEY, artist_id)`: other spellings that resolve to an artist (filled by merges and by
   the owner); import matching checks `artist.norm` then `artist_alias.norm`.
 - `venue(id, name, city, region, country, lat, lon, geocode_source, created_at, updated_at)`: `name` is the current
@@ -226,6 +228,10 @@ whitespace collapsed, trimmed. Venue matching also drops a leading "the " and mu
 4. Apply (one transaction): create venues, artists and runs as needed, then shows, lineups and sources for ticked
    rows. A `maybe` row that is ticked becomes a new show. Nothing existing is updated.
 
+An act may carry an optional `"mbid"` (a MusicBrainz UUID, validated; 400 when it is not one). Matching and apply
+resolve an act by `artist.mbid` first, then `artist.norm`, then `artist_alias.norm`, so a known ID matches an artist
+whatever the spelling; a new artist made from such an act stores it.
+
 Re-importing the same file gives zero `new` rows. API batches: `POST /admin/api/imports` (write key or editor) with
 `{"label": str, "shows": [proposal...]}` in the same proposal shape the CSV parser produces; returns the batch id and
 counts; the batch then appears on the review screen.
@@ -305,12 +311,24 @@ private, link-local or reserved addresses, re-checking every redirect; 5 s timeo
 suggestions: "use this image as the poster", "add these performers", "date says …". Each applied suggestion records
 the URL as its source. Nothing is applied without a click.
 
+### 7.13 MusicBrainz links (post-v1 #45)
+
+An artist can be linked to MusicBrainz so it has a stable identifier. Nothing links itself: the server searches
+`MUSICBRAINZ_URL` (`artist:"<name>"`, five results, `User-Agent` naming the app and repo, 10 s timeout, at least one
+second between calls; an HTTP error or timeout is 502 "Lookup failed") and the editor picks a candidate (name, note,
+country, score) on the artist page (Link / Change / Unlink). `#/admin/artists` lists artists without a link and works
+through them one per second ("Suggest for all unlinked"), showing each top match with Link / Skip; "Link all exact"
+links only those whose top result scores 100, has a `norm`-equal name and has no second result at 100. An ID another
+artist already has is 409 "Another artist has this MusicBrainz ID: merge them." (naming that artist), and the screen
+offers the merge with both preselected. A merge keeps the kept artist's ID, else takes the dropped one's. The public
+artist page shows "MusicBrainz" as a link to `https://musicbrainz.org/artist/<mbid>`; the note is editors only.
+
 ## 8. Settings
 
 `.env.example` and the installer's `add_setting` list carry every setting: `PORT` (8773), `DATA_DIR`,
 `CF_TEAM_DOMAIN`, `CF_AUD`, `ADMIN_EMAILS`, `LAN_EDIT`, `LAN_HOSTS`, `PUBLIC_VIEW`, `PUBLIC_POSTERS` (0),
 `STUBS_API_KEY`, `STUBS_READ_KEY`, `SETLISTFM_API_KEY`, `GEOCODER_URL`
-(`https://nominatim.openstreetmap.org/search`), `TILE_URL` (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`).
+(`https://nominatim.openstreetmap.org/search`), `MUSICBRAINZ_URL` (`https://musicbrainz.org/ws/2`), `TILE_URL` (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`).
 
 ## 9. Testing
 

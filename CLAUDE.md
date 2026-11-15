@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20. Post-v1: #43, #44.
+**Status:** Built: Task 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20. Post-v1: #43, #44, #45.
 
 ## Commands
 
@@ -53,7 +53,7 @@ its Chromium are installed (`pip install playwright && python -m playwright inst
   `innerHTML` is only assigned a template literal, `""` or a `render*` call; no inline `<script>`/`<style>`,
   `style="..."`, `on*=`, `.onclick =`, `confirm(` or `alert(` in `static/js/`. `tests/test_frontend.py` scans for all
   of it (it doesn't parse regex literals: keep quotes and backticks out of them, as `\x22`, `\x27`, `\x60`).
-- Errors are JSON `{"error": str}` via `common.ApiError(status, message)`. Bodies via `json_body()`; strings via
+- Errors are JSON `{"error": str}` via `common.ApiError(status, message, **extra)` (extra keys join the body: the MusicBrainz 409 adds `artist_id`). Bodies via `json_body()`; strings via
   `text(data, key, max_len)`; text over its limit is 400, never cut.
 - Outbound HTTP sends `settings.UA` (`stubs/1.0 (concert history; https://github.com/SDNick484/stubs)`) and a timeout;
   tests use recorded fixtures under `tests/fixtures/` and never touch the network. External features test a hit, a
@@ -70,13 +70,14 @@ app.py            Flask object, access (access_identity, lan_host, cross_site, i
                   /manifest.json, /robots.txt, /healthz, /api/session, /admin/api/session. Section markers
                   `# ==== Task N: <name>` for each later task.
 settings.py       environment config, read once at import after /etc/conf.d/stubs and ./.env (keys not already set)
-db.py             SCHEMA (v3, spec section 5), SCHEMA_VERSION, connect(), transaction(), migrate() (MIGRATIONS: _to_v1,
+db.py             SCHEMA (v4, spec section 5), SCHEMA_VERSION, connect(), transaction(), migrate() (MIGRATIONS: _to_v1,
                   _to_v2 moves v1's per-show setlist_link onto lineup entries, _to_v3 adds _V3_SCHEMA's stored-setlist
-                  tables), db() (per request, in g), close_db(), init_db()
+                  tables, _to_v4 adds artist.mbid / mb_disambiguation), db() (per request, in g), close_db(), init_db()
 common.py         ApiError, json_body, text, norm, venue_norm, parse_date, period_end, today
 csvimport.py      parse_csv(bytes) -> Proposals (UTF-8/BOM or cp1252, any CRLF), split_billing, parse_city, US_STATES,
                   CA_PROVINCES (spec 7.3 step 1); tests/fixtures/concerts.csv is its invented sample, reused by Task 4
-records.py        write-side core taking a Connection: resolve_artist, get_or_create_artist/venue/run, find_venue,
+records.py        write-side core taking a Connection: resolve_artist (mbid, then norm, then aliases), get_or_create_artist
+                  (a new artist stores an act's mbid)/venue/run, find_venue,
                   create_show, add_lineup_entry, add_source, delete_show (unlinks image files); songs (#43):
                   resolve_song(con, artist_id, title) (song.norm, then song_alias.norm, within the artist),
                   get_or_create_song, drop_unused_songs(con, artist_ids) (not played, not in_catalog, no alias),
@@ -102,7 +103,12 @@ images.py         posters, photos, stubs (spec 7.9): MAX_IMAGE_BYTES, sniff_imag
                   delete_image, visible_file (who may see a file); routes in app.py under Task 17
 merge.py          merge_artists, merge_venues (atomic; aliases and former names kept, shows' version bumped; an artist
                   merge folds songs by title/alias and moves a folded entry's stored setlist like its setlist_link),
-                  search_artists, search_venues (GET /admin/api/artists|venues?q=, also Task 11's venue picker)
+                  search_artists, search_venues (GET /admin/api/artists|venues?q=, also Task 11's venue picker); an artist merge
+                  keeps the kept artist's MusicBrainz id, else takes the dropped one's
+musicbrainz.py    MusicBrainz links (#45): search(name) (1 req/s, UA, 10 s; 502 "Lookup failed"), exact(name, candidates),
+                  suggest(con, id), link (400 bad UUID, 409 with `artist_id`), unlink, unlinked; routes in app.py under
+                  Post-v1 #45: GET /admin/api/artists/unlinked, GET .../artists/<id>/musicbrainz/search, PUT/DELETE
+                  .../artists/<id>/musicbrainz. Public artist detail has `mbid`; `mb_disambiguation` is editors only
 imports.py        import batches (spec 7.3 steps 2-4): validate_proposal, match, create_batch, batch_view (the review
                   shape Task 5 reads), update_row, apply_batch (one IMMEDIATE transaction; a second apply is 409),
                   discard_batch, pending_batches; routes in app.py under Task 4 at /admin/api/imports and
@@ -158,7 +164,10 @@ static/js/        hash-routed ES modules, no build step: main.js (router, header
                   heard" (#44); editors paste the catalog, merge a song ("Merge 'X' into 'Y'? 3 plays move.").
                   heardLabel, renderHeard, renderNeverHeard, renderMergeConfirm, renderPlay, renderSong, showSong
   images.js       the Pictures show panel (order 10): groupImages, renderPictures, renderPicturesPanel
-  merge.js        #/admin/merge: renderMergeConfirm, renderPick
+  musicbrainz.js  the artist page's MusicBrainz link and editor Link / Change / Unlink, #/admin/artists (Suggest, Suggest for
+                  all unlinked, Link all exact) and the "Artists without a MusicBrainz link (N)" card (order 45):
+                  renderMbBlock, mountMbControls, renderSuggestion, renderCandidate, renderMergeLink
+  merge.js        #/admin/merge (also `?keep=<id>&drop=<id>` preselects two artists): renderMergeConfirm, renderPick
   confirm.js      #/admin/confirm and the To confirm admin card (order 20): renderConfirmItem, renderConfirmPage,
                   renderConfirmCard
   didyougo.js     the "Did you go?" (order 10) and "Coming up" (order 15) admin cards: renderDue, renderUpcoming
@@ -208,7 +217,7 @@ list and the init script's `export` line (`tests/test_installer_static.py` check
 - Route-free logic lives in sibling modules that take a `sqlite3.Connection` and never import `app`; routes call
   `db()`. Connections are autocommit: wrap anything that must be atomic in `with db.transaction(con):` (nests as a
   savepoint).
-- Schema decisions (v1, plus v2's per-act `setlist_link` and v3's stored setlists): names match through `artist.norm`
+- Schema decisions (v1, plus v2's per-act `setlist_link`, v3's stored setlists and v4's MusicBrainz columns): names match through `artist.norm`
   (UNIQUE) and `artist_alias.norm`; every name a venue has had is a `venue_name` row (`UNIQUE(norm, venue_id)`, norm =
   `venue_norm`), the current one included. `show.date` is `YYYY`, `YYYY-MM` or `YYYY-MM-DD` with `date_precision` and
   `sort_date` (first day of the period) from `common.parse_date`. `ON DELETE CASCADE` from `lineup`, `source`,
@@ -220,7 +229,9 @@ list and the init script's `export` line (`tests/test_installer_static.py` check
   `setlist(lineup_id PRIMARY KEY, source_label, source_url, created_at, updated_at)` (one per lineup entry, cascades
   from `lineup`), `setlist_entry(id, lineup_id, position, set_name, encore, song_id, note, segue)` `UNIQUE(lineup_id,
   position)` (cascades from `setlist`). Songs are never cascaded: writers that drop setlist entries call
-  `records.drop_unused_songs`. Timestamps are SQLite `CURRENT_TIMESTAMP` text.
+  `records.drop_unused_songs`. Schema v4 (#45): `artist.mbid TEXT` (NULL allowed, unique where set via the
+  partial index `artist_mbid`; lowercase UUID) and `artist.mb_disambiguation TEXT` (MusicBrainz's note, shown to editors
+  only). Timestamps are SQLite `CURRENT_TIMESTAMP` text.
 - Access (`app.py`): `access_identity()` is `"api-key"` (`STUBS_API_KEY` as `X-API-Key` or `Authorization: Bearer`),
   `"read-key"` (`STUBS_READ_KEY`: editor reads, no writes), the email of a Cloudflare Access JWT
   (`Cf-Access-Jwt-Assertion`, RS256, audience `CF_AUD`, issuer `https://<CF_TEAM_DOMAIN>`) that is in
@@ -240,7 +251,7 @@ list and the init script's `export` line (`tests/test_installer_static.py` check
 - Frontend: a route renders into `ctx.view` (`ctx = {view, params, query, session, alive, rerender}`); check
   `ctx.alive()` after each await. Show panels and admin cards plug in through `registry.js` with an `order`
   (spec'd orders: Edit 0, Pictures 10, Setlists 15, Setlist 20, With 40, From a link 50; cards Did you go? 10, Coming up 15,
-  To confirm 20, Imports waiting 30, Not on the map 40). An admin card's `render(el)` may return `false` to hide
+  To confirm 20, Imports waiting 30, Not on the map 40, Artists without a MusicBrainz link 45). An admin card's `render(el)` may return `false` to hide
   itself; with nothing left `#/admin` says "Nothing needs you." `core.js` touches no DOM at import so `node --test`
   can load it. `document.title` is set only in `main.js`, from `session.app_name`. Deletes and confirmations use an
   inline "Delete? Yes / No", never `window.confirm`.
