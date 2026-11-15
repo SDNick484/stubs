@@ -1,5 +1,6 @@
 """Spec section 6: nothing editor-only reaches a public reader. Seeds one of everything editor-only (an upcoming show,
-a note, a likely flag, a source, a companion, a rating, a poster, a stub, an import), each carrying a marker string,
+a note, a likely flag, a source, a companion, a rating, a poster, a stub, an import, a stored setlist's source, a
+stored setlist on the upcoming show), each carrying a marker string,
 then walks every GET rule under /api/ in app.url_map as an anonymous client and asserts no marker, and no editor-only
 key, appears in any body.
 
@@ -17,9 +18,9 @@ import settings
 from conftest import mk_artist, mk_show, mk_venue
 
 MARKERS = ("SECRET-UPCOMING", "SECRET-NOTE", "SECRET-CONF", "SECRET-SOURCE", "SECRET-PERSON", "secret-poster",
-           "secret-stub", "SECRET-IMPORT")
+           "secret-stub", "SECRET-IMPORT", "SECRET-SETLIST")
 UPCOMING_YEAR = "2099"  # the upcoming show's year: no public page may list it, not even as a year with 0 shows
-EDITOR_KEYS = {"notes", "rating", "confidence", "confidence_note", "sources", "version"}
+EDITOR_KEYS = {"notes", "rating", "confidence", "confidence_note", "sources", "version", "source_label", "source_url"}
 
 # Path parameter name -> the values to try, from the `seeded` namespace.
 PARAM_SAMPLES = {
@@ -57,6 +58,19 @@ def seeded(con):
                 "'secret-stub caption')", (attended,))
     con.execute("INSERT INTO image (show_id, kind, file, position) VALUES (?, 'photo', 'photo-1.jpg', 1)", (attended,))
     con.execute("INSERT INTO image (show_id, kind, file) VALUES (?, 'photo', 'secret-poster-upcoming.jpg')", (upcoming,))
+    # The owner's setlists: the attended show's opener has one (public, but never its source), and so does the
+    # upcoming show (never public at all).
+    song = con.execute("INSERT INTO song (artist_id, title, norm) VALUES (?, 'Ninefold Waltz', 'ninefold waltz')",
+                       (opener,)).lastrowid
+    con.execute("INSERT INTO setlist (lineup_id, source_label, source_url) VALUES (?, 'SECRET-SETLIST fan club', "
+                "'https://concerts.example.com/SECRET-SETLIST')", (lid,))
+    con.execute("INSERT INTO setlist_entry (lineup_id, position, song_id) VALUES (?, 1, ?)", (lid, song))
+    up_lid = con.execute("SELECT id FROM lineup WHERE show_id = ?", (upcoming,)).fetchone()[0]
+    hidden = con.execute("INSERT INTO song (artist_id, title, norm) VALUES (?, 'SECRET-UPCOMING song', "
+                         "'secret-upcoming song')", (artist,)).lastrowid
+    con.execute("INSERT INTO setlist (lineup_id, source_label) VALUES (?, 'typed')", (up_lid,))
+    con.execute("INSERT INTO setlist_entry (lineup_id, position, song_id, note) VALUES (?, 1, ?, 'SECRET-UPCOMING')",
+                (up_lid, hidden))
     b = con.execute("INSERT INTO import_batch (origin, label) VALUES ('csv', 'SECRET-IMPORT batch')").lastrowid
     con.execute("INSERT INTO import_row (batch_id, row_no, raw, parsed, verdict, include) "
                 "VALUES (?, 1, '{\"artist\": \"SECRET-IMPORT\"}', '{\"billing\": \"SECRET-IMPORT\"}', 'new', 1)", (b,))
@@ -117,6 +131,13 @@ def test_no_editor_data_on_public_routes(client, seeded):
                 assert not leaked, f"{url} has editor-only keys {sorted(leaked)}"
             walked += 1
     assert walked >= len(QUERIES)
+
+
+def test_the_public_show_has_the_setlist_without_its_source(client, seeded):
+    lineup = {e["name"]: e for e in client.get(f"/api/shows/{seeded.attended}").get_json()["lineup"]}
+    sets = lineup["Ninefold"]["setlist"]["sets"]
+    assert [s["title"] for s in sets[0]["songs"]] == ["Ninefold Waltz"]
+    assert set(lineup["Ninefold"]["setlist"]) == {"sets"}
 
 
 def test_every_marker_is_seeded(con, seeded):

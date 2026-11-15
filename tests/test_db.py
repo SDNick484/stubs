@@ -1,5 +1,6 @@
-"""The schema (spec section 5, now v2), migrate() and its v1 -> v2 step, and the connection settings."""
+"""The schema (spec section 5, now v3), migrate() with its v1 -> v2 and v2 -> v3 steps, and the connection settings."""
 import logging
+import re
 import sqlite3
 import types
 
@@ -10,7 +11,9 @@ import settings
 from conftest import mk_artist, mk_show, mk_venue
 
 TABLES = {"meta", "artist", "artist_alias", "venue", "venue_name", "run", "show", "lineup", "source", "person",
-          "show_person", "image", "setlist_link", "import_batch", "import_row"}
+          "show_person", "image", "setlist_link", "import_batch", "import_row", "song", "song_alias", "setlist",
+          "setlist_entry"}
+V3_TABLES = ("song", "song_alias", "setlist", "setlist_entry")
 
 
 def tables(con):
@@ -20,8 +23,8 @@ def tables(con):
 def test_migrate_creates_every_table(con):
     names = tables(con)
     assert TABLES <= names
-    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "2"
-    assert db.SCHEMA_VERSION == "2"
+    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "3"
+    assert db.SCHEMA_VERSION == "3"
 
 
 def test_migrate_is_idempotent(con):
@@ -30,7 +33,7 @@ def test_migrate_is_idempotent(con):
     db.migrate(con)
     assert tables(con) == before
     assert con.execute("SELECT COUNT(*) FROM meta").fetchone()[0] == 1
-    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "2"
+    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "3"
 
 
 def test_migrate_keeps_data(con):
@@ -187,11 +190,17 @@ V1_SETLIST_LINK = """CREATE TABLE IF NOT EXISTS setlist_link (
   url TEXT NOT NULL)"""
 
 
+def v2_statements():
+    """Today's SCHEMA without the tables and indexes schema v3 added: what a v2 database was made of."""
+    return [s for s in db._statements(db.SCHEMA)
+            if not re.search(r"\b(?:TABLE|ON) (?:IF NOT EXISTS )?(?:%s)\b" % "|".join(V3_TABLES), s)]
+
+
 def v1_database(path):
-    """A database as schema v1 left it: v1's SCHEMA (today's, with v1's setlist_link, the one table v2 changed) and
+    """A database as schema v1 left it: v2's tables (with v1's setlist_link, the one table v2 changed) and
     schema_version 1."""
     con = db.connect(path)
-    stmts = db._statements(db.SCHEMA)
+    stmts = v2_statements()
     at = [i for i, s in enumerate(stmts) if s.startswith("CREATE TABLE IF NOT EXISTS setlist_link")]
     assert len(at) == 1
     stmts[at[0]] = V1_SETLIST_LINK
@@ -244,7 +253,7 @@ def test_v2_moves_each_link_onto_the_headlining_entry(v1, caplog):
     con, s = v1
     with caplog.at_level(logging.WARNING, logger="db"):
         db.migrate(con)
-    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "2"
+    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "3"
     assert links(con) == {
         entry_id(con, s.headliner, "The Paper Lanterns"): "aaa111",  # headliner, lowest position
         entry_id(con, s.coheadliners, "Velvet Arcade"): "bbb222",   # no headliner: the first coheadliner
@@ -309,3 +318,144 @@ def test_v2_failing_part_way_leaves_v1_intact(v1, monkeypatch):
     monkeypatch.setitem(db.MIGRATIONS, 2, real)
     db.migrate(con)  # and the next start finishes the job
     assert len(links(con)) == 3
+
+
+# ---------------------------------------------------------------- the v2 -> v3 step (stored setlists)
+def v2_database(path):
+    """A database as schema v2 left it: no song, song_alias, setlist or setlist_entry, and schema_version 2."""
+    con = db.connect(path)
+    for stmt in v2_statements():
+        con.execute(stmt)
+    con.execute("INSERT INTO meta (k, v) VALUES ('schema_version', '2')")
+    return con
+
+
+def everything(con, skip=V3_TABLES):
+    """Every row of every table but the v3 ones, by table name."""
+    return {t: sorted(tuple(r) for r in con.execute(f'SELECT * FROM "{t}"'))
+            for t in sorted(tables(con)) if t not in skip and t != "meta"}
+
+
+@pytest.fixture
+def v2(tmp_path):
+    con = v2_database(tmp_path / "v2.db")
+    v = mk_venue(con, "Granite Hall")
+    show = mk_show(con, "The Paper Lanterns", "2025-07-19", v,
+                   lineup=(("Marigold Static", "opener"), ("The Paper Lanterns", "headliner")))
+    opener = entry_id(con, show, "Marigold Static")
+    con.execute("INSERT INTO setlist_link (lineup_id, setlistfm_id, url) VALUES (?, 'abc123', "
+                "'https://www.setlist.fm/setlist/x/2025/y-abc123.html')", (opener,))
+    con.execute("INSERT INTO source (show_id, lineup_id, label) VALUES (?, ?, 'Ticket stub')", (show, opener))
+    con.execute("INSERT INTO artist_alias (norm, artist_id) VALUES ('the paper lantern', ?)",
+                (mk_artist(con, "The Paper Lanterns"),))
+    yield con, show
+    con.close()
+
+
+def test_v3_keeps_every_v2_row(v2):
+    con, show = v2
+    before = everything(con)
+    db.migrate(con)
+    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "3"
+    assert everything(con) == before
+    assert links(con) == {entry_id(con, show, "Marigold Static"): "abc123"}  # the per-act link is untouched
+    for table in V3_TABLES:
+        assert con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
+
+
+def test_v3_tables_are_the_same_as_a_new_databases(v2, con):
+    old, _ = v2
+    db.migrate(old)
+    for table in V3_TABLES:
+        for pragma in ("table_info", "foreign_key_list", "index_list"):
+            got = [tuple(r) for r in old.execute(f"PRAGMA {pragma}({table})")]
+            assert got == [tuple(r) for r in con.execute(f"PRAGMA {pragma}({table})")], (table, pragma)
+    names = lambda c: {r[0] for r in c.execute("SELECT name FROM sqlite_master")}  # noqa: E731
+    assert names(old) == names(con)
+    assert old.execute("PRAGMA foreign_key_check").fetchall() == []
+    assert old.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+
+
+def test_v3_migrating_twice_changes_nothing(v2):
+    con, _ = v2
+    db.migrate(con)
+    dump = list(con.iterdump())
+    db.migrate(con)
+    db.MIGRATIONS[3](con)  # the step itself is idempotent too
+    assert list(con.iterdump()) == dump
+
+
+def test_v1_still_reaches_v3(v1):
+    con, s = v1
+    db.migrate(con)
+    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "3"
+    assert TABLES <= tables(con)
+    assert len(links(con)) == 3
+    assert con.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_v3_failing_part_way_leaves_v2_intact(v2, monkeypatch):
+    con, _ = v2
+    before = list(con.iterdump())
+    real = db.MIGRATIONS[3]
+
+    def step_then_fail(c):
+        real(c)
+        raise RuntimeError("disk full")
+
+    monkeypatch.setitem(db.MIGRATIONS, 3, step_then_fail)
+    with pytest.raises(RuntimeError):
+        db.migrate(con)
+    assert list(con.iterdump()) == before
+    monkeypatch.setitem(db.MIGRATIONS, 3, real)
+    db.migrate(con)
+    assert {"song", "setlist"} <= tables(con)
+
+
+def song(con, artist_id, title, norm=None):
+    return con.execute("INSERT INTO song (artist_id, title, norm) VALUES (?, ?, ?)",
+                       (artist_id, title, norm or title.lower())).lastrowid
+
+
+def test_song_checks(con):
+    a, b = mk_artist(con, "The Paper Lanterns"), mk_artist(con, "Marigold Static")
+    s = song(con, a, "Lantern Light")
+    song(con, b, "Lantern Light")  # another act's song with the same title is another song
+    assert con.execute("SELECT in_catalog FROM song WHERE id = ?", (s,)).fetchone()[0] == 0
+    with pytest.raises(sqlite3.IntegrityError):
+        song(con, a, "LANTERN LIGHT", "lantern light")  # UNIQUE(artist_id, norm)
+    with pytest.raises(sqlite3.IntegrityError):
+        song(con, 99999, "Paper Boats")
+    with pytest.raises(sqlite3.IntegrityError):
+        con.execute("INSERT INTO song (artist_id, title, norm, in_catalog) VALUES (?, 'x', 'x', 2)", (a,))
+    con.execute("INSERT INTO song_alias (artist_id, norm, song_id) VALUES (?, 'lantern lite', ?)", (a, s))
+    with pytest.raises(sqlite3.IntegrityError):
+        con.execute("INSERT INTO song_alias (artist_id, norm, song_id) VALUES (?, 'lantern lite', ?)", (a, s))
+    with pytest.raises(sqlite3.IntegrityError):  # a song with an alias, or played, can't just be deleted
+        con.execute("DELETE FROM song WHERE id = ?", (s,))
+    with pytest.raises(sqlite3.IntegrityError):  # nor an artist with songs
+        con.execute("DELETE FROM artist WHERE id = ?", (b,))
+
+
+def test_setlist_cascades_from_the_lineup_and_the_show(con):
+    v = mk_venue(con, "The Bellwether")
+    s = mk_show(con, "Cold Harbor", "2016-12-01", v, lineup=(("Cold Harbor", "headliner"), ("Ninefold", "opener")))
+    head, opener = [r[0] for r in con.execute("SELECT id FROM lineup WHERE show_id = ? ORDER BY position", (s,))]
+    title = song(con, mk_artist(con, "Cold Harbor"), "Harbor Lights")
+    for lid in (head, opener):
+        con.execute("INSERT INTO setlist (lineup_id, source_label) VALUES (?, 'typed')", (lid,))
+        con.execute("INSERT INTO setlist_entry (lineup_id, position, song_id) VALUES (?, 1, ?)", (lid, title))
+    with pytest.raises(sqlite3.IntegrityError):  # one setlist per act
+        con.execute("INSERT INTO setlist (lineup_id, source_label) VALUES (?, 'again')", (head,))
+    with pytest.raises(sqlite3.IntegrityError):  # entries belong to a setlist
+        con.execute("INSERT INTO setlist_entry (lineup_id, position, song_id) VALUES (99999, 1, ?)", (title,))
+    with pytest.raises(sqlite3.IntegrityError):
+        con.execute("INSERT INTO setlist_entry (lineup_id, position, song_id, encore) VALUES (?, 2, ?, 5)",
+                    (head, title))
+    con.execute("DELETE FROM lineup WHERE id = ?", (opener,))
+    assert [r[0] for r in con.execute("SELECT lineup_id FROM setlist")] == [head]
+    assert [r[0] for r in con.execute("SELECT lineup_id FROM setlist_entry")] == [head]
+    con.execute("DELETE FROM show WHERE id = ?", (s,))
+    assert con.execute("SELECT COUNT(*) FROM setlist").fetchone()[0] == 0
+    assert con.execute("SELECT COUNT(*) FROM setlist_entry").fetchone()[0] == 0
+    assert con.execute("SELECT COUNT(*) FROM song").fetchone()[0] == 1  # songs are never cascaded

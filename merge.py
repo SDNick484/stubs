@@ -5,6 +5,7 @@ A merge moves every reference from the dropped record to the kept one, records t
 or a former name (venues), and deletes the dropped record, all in one transaction. Shows whose lineup or venue changed
 get a new `version`, so an edit form opened before the merge is refused as stale instead of saving ids that are
 gone."""
+import records
 from common import ApiError, norm, venue_norm
 from db import transaction
 
@@ -27,8 +28,9 @@ def _get(con, table, row_id, kind):
 def merge_artists(con, keep_id, drop_id) -> None:
     """Fold artist drop_id into keep_id. Lineup entries move; where both are on one show the kept entry stays as it
     is (role, position, confidence; a missing rating is filled from the dropped entry), the dropped entry's sources
-    move to it, so does its setlist link if the kept entry has none (else it cascades away), and the dropped entry
-    goes. Aliases move, the dropped name becomes an alias, the artist is deleted."""
+    move to it, so do its setlist link and its stored setlist if the kept entry has none (else they cascade away),
+    and the dropped entry goes. Songs fold in (_merge_songs). Aliases move, the dropped name becomes an alias, the
+    artist is deleted."""
     _ids(keep_id, drop_id, "artist")
     with transaction(con):
         keep = _get(con, "artist", keep_id, "artist")
@@ -44,15 +46,54 @@ def merge_artists(con, keep_id, drop_id) -> None:
             con.execute("UPDATE setlist_link SET lineup_id = :keep WHERE lineup_id = :drop "
                         "AND NOT EXISTS (SELECT 1 FROM setlist_link WHERE lineup_id = :keep)",
                         {"keep": row["keep_entry"], "drop": row["drop_entry"]})
+            _move_setlist(con, row["drop_entry"], row["keep_entry"])
             con.execute("UPDATE lineup SET rating = COALESCE(rating, ?) WHERE id = ?", (row["rating"], row["keep_entry"]))
             con.execute("DELETE FROM lineup WHERE id = ?", (row["drop_entry"],))
         con.execute("UPDATE lineup SET artist_id = ? WHERE artist_id = ?", (keep_id, drop_id))
+        _merge_songs(con, keep_id, drop_id)
         con.execute("UPDATE artist_alias SET artist_id = ? WHERE artist_id = ?", (keep_id, drop_id))
         con.execute("INSERT INTO artist_alias (norm, artist_id) VALUES (?, ?) "
                     "ON CONFLICT(norm) DO UPDATE SET artist_id = excluded.artist_id", (drop["norm"], keep_id))
         con.execute("DELETE FROM artist_alias WHERE norm = ?", (keep["norm"],))
         con.execute("DELETE FROM artist WHERE id = ?", (drop_id,))
         con.execute("UPDATE artist SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (keep_id,))
+
+
+def _move_setlist(con, from_entry, to_entry):
+    """The dropped entry's stored setlist becomes the kept entry's, when the kept entry has none."""
+    if not con.execute("SELECT 1 FROM setlist WHERE lineup_id = ?", (from_entry,)).fetchone() or \
+            con.execute("SELECT 1 FROM setlist WHERE lineup_id = ?", (to_entry,)).fetchone():
+        return
+    con.execute("INSERT INTO setlist (lineup_id, source_label, source_url, created_at, updated_at) "
+                "SELECT ?, source_label, source_url, created_at, CURRENT_TIMESTAMP FROM setlist WHERE lineup_id = ?",
+                (to_entry, from_entry))
+    con.execute("UPDATE setlist_entry SET lineup_id = ? WHERE lineup_id = ?", (to_entry, from_entry))
+    con.execute("DELETE FROM setlist WHERE lineup_id = ?", (from_entry,))
+
+
+def _merge_songs(con, keep_id, drop_id):
+    """The dropped artist's songs become the kept artist's. One the kept artist already has (by title or alias,
+    records.resolve_song) is folded into it: setlist entries and aliases move to it, it joins the catalog if the
+    dropped one was in it, and the dropped song goes. The others just change artist. Then the dropped artist's
+    aliases move, except those the kept artist already resolves, and the kept artist's songs nothing plays any more
+    (a folded entry's setlist that cascaded away) go."""
+    for song in con.execute("SELECT id, title, in_catalog FROM song WHERE artist_id = ? ORDER BY id",
+                            (drop_id,)).fetchall():
+        into = records.resolve_song(con, keep_id, song["title"])
+        if into is None:
+            con.execute("UPDATE song SET artist_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (keep_id, song["id"]))
+            continue
+        con.execute("UPDATE setlist_entry SET song_id = ? WHERE song_id = ?", (into, song["id"]))
+        con.execute("UPDATE song_alias SET song_id = ? WHERE song_id = ?", (into, song["id"]))
+        con.execute("UPDATE song SET in_catalog = MAX(in_catalog, ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (song["in_catalog"], into))
+        con.execute("DELETE FROM song WHERE id = ?", (song["id"],))
+    for alias in con.execute("SELECT norm FROM song_alias WHERE artist_id = ?", (drop_id,)).fetchall():
+        if records.resolve_song(con, keep_id, alias["norm"]) is None:
+            con.execute("UPDATE song_alias SET artist_id = ? WHERE artist_id = ? AND norm = ?",
+                        (keep_id, drop_id, alias["norm"]))
+    con.execute("DELETE FROM song_alias WHERE artist_id = ?", (drop_id,))
+    records.drop_unused_songs(con, [keep_id])
 
 
 def _artist_row(r):

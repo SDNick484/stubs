@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20.
+**Status:** Built: Task 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20. Post-v1: #43.
 
 ## Commands
 
@@ -70,16 +70,20 @@ app.py            Flask object, access (access_identity, lan_host, cross_site, i
                   /manifest.json, /robots.txt, /healthz, /api/session, /admin/api/session. Section markers
                   `# ==== Task N: <name>` for each later task.
 settings.py       environment config, read once at import after /etc/conf.d/stubs and ./.env (keys not already set)
-db.py             SCHEMA (v2, spec section 5), SCHEMA_VERSION, connect(), transaction(), migrate() (MIGRATIONS: _to_v1,
-                  _to_v2 moves v1's per-show setlist_link onto lineup entries), db() (per request, in g), close_db(),
-                  init_db()
+db.py             SCHEMA (v3, spec section 5), SCHEMA_VERSION, connect(), transaction(), migrate() (MIGRATIONS: _to_v1,
+                  _to_v2 moves v1's per-show setlist_link onto lineup entries, _to_v3 adds _V3_SCHEMA's stored-setlist
+                  tables), db() (per request, in g), close_db(), init_db()
 common.py         ApiError, json_body, text, norm, venue_norm, parse_date, period_end, today
 csvimport.py      parse_csv(bytes) -> Proposals (UTF-8/BOM or cp1252, any CRLF), split_billing, parse_city, US_STATES,
                   CA_PROVINCES (spec 7.3 step 1); tests/fixtures/concerts.csv is its invented sample, reused by Task 4
 records.py        write-side core taking a Connection: resolve_artist, get_or_create_artist/venue/run, find_venue,
-                  create_show, add_lineup_entry, add_source, delete_show (unlinks image files). Bad input is ApiError
+                  create_show, add_lineup_entry, add_source, delete_show (unlinks image files); songs (#43):
+                  resolve_song(con, artist_id, title) (song.norm, then song_alias.norm, within the artist),
+                  get_or_create_song, drop_unused_songs(con, artist_ids) (not played, not in_catalog, no alias),
+                  move_setlist_songs (a renamed lineup entry's setlist follows it). Bad input is ApiError
 browse.py         the browse reads (Task 6): show_row (the Show row contract, from a SHOW_SELECT row), list_shows,
-                  show_detail, artist_detail, venue_detail, years, city_detail; each served at /api/ (editor=False,
+                  show_detail (each lineup entry carries its stored `setlist` or None), artist_detail, venue_detail,
+                  years, city_detail; each served at /api/ (editor=False,
                   whoever asks) and /admin/api/ (editor=True). Public: attended shows only, no editor-only field;
                   an upcoming show, and an artist, venue or city with no attended show, is None -> 404 "Not found".
                   Lists newest first (editors' upcoming shows first). City paths: /api/cities/<country>/<region>/<city>,
@@ -96,7 +100,8 @@ setlistfm.py      setlist.fm client (Task 18, per act since #40): search(artist,
                   [?lineup_id=], PUT/DELETE /admin/api/shows/<id>/lineup/<lineup_id>/setlistfm
 images.py         posters, photos, stubs (spec 7.9): MAX_IMAGE_BYTES, sniff_image, save_image, list_images, update_image,
                   delete_image, visible_file (who may see a file); routes in app.py under Task 17
-merge.py          merge_artists, merge_venues (atomic; aliases and former names kept, shows' version bumped),
+merge.py          merge_artists, merge_venues (atomic; aliases and former names kept, shows' version bumped; an artist
+                  merge folds songs by title/alias and moves a folded entry's stored setlist like its setlist_link),
                   search_artists, search_venues (GET /admin/api/artists|venues?q=, also Task 11's venue picker)
 imports.py        import batches (spec 7.3 steps 2-4): validate_proposal, match, create_batch, batch_view (the review
                   shape Task 5 reads), update_row, apply_batch (one IMMEDIATE transaction; a second apply is 409),
@@ -115,6 +120,11 @@ fetchurl.py       fetch from a URL (spec 7.12) behind the SSRF guard: check_host
 editing.py        show editing (Task 11): create, update_show (version-checked, 409 STALE), set_lineup, delete,
                   add_show_source, remove_source, list_runs; routes in app.py (POST/PATCH/DELETE
                   /admin/api/shows[/<id>], PUT .../lineup, sources, GET /admin/api/runs)
+setlists.py       stored setlists (post-v1 #43): parse_setlist(text) (the paste parser: numbering, headings, encores,
+                  segues, notes; 400 naming the line), preview, save (version-checked, bumps it; songs made per act),
+                  delete, for_show(con, show_id, editor=) (what show_detail adds; source_label/url for editors only);
+                  routes in app.py under "Post-v1 #43": POST /admin/api/lineup/<id>/setlist/preview, PUT and DELETE
+                  /admin/api/lineup/<id>/setlist. 409 "Add a setlist after the show." on an upcoming show
 venueedit.py      venue editing (Task 20): view, update_venue (name/city/region/country; a rename keeps the old name,
                   coordinates kept), add_name, remove_name (409 for the current name, a name a ticket uses, or a name
                   another venue in the city has); routes in app.py under Task 20 at /admin/api/venues/<id>[/names]
@@ -132,6 +142,10 @@ static/js/        hash-routed ES modules, no build step: main.js (router, header
   setlist.js      the Setlist show panel (order 20): each linked act's set; editors get Find setlists (confirm the
                   ticked acts) and Find per act. renderPanelBody, renderAct, renderShowMatches, defaultPick,
                   renderResults
+  setlists.js     the Setlists show panel (order 15, #43): the owner's setlists from the show detail, by set and
+                  encore; editors get Add setlist / Edit (paste, Preview with new songs tagged, source, Save) and an
+                  inline Delete. renderSets, groupEntries, setlistText, renderPreview, renderPanelBody,
+                  renderSetlistsPanel
   images.js       the Pictures show panel (order 10): groupImages, renderPictures, renderPicturesPanel
   merge.js        #/admin/merge: renderMergeConfirm, renderPick
   confirm.js      #/admin/confirm and the To confirm admin card (order 20): renderConfirmItem, renderConfirmPage,
@@ -183,14 +197,19 @@ list and the init script's `export` line (`tests/test_installer_static.py` check
 - Route-free logic lives in sibling modules that take a `sqlite3.Connection` and never import `app`; routes call
   `db()`. Connections are autocommit: wrap anything that must be atomic in `with db.transaction(con):` (nests as a
   savepoint).
-- Schema decisions (v1, plus v2's per-act `setlist_link`): names match through `artist.norm` (UNIQUE) and
-  `artist_alias.norm`; every name a venue has had is a `venue_name` row (`UNIQUE(norm, venue_id)`, norm =
+- Schema decisions (v1, plus v2's per-act `setlist_link` and v3's stored setlists): names match through `artist.norm`
+  (UNIQUE) and `artist_alias.norm`; every name a venue has had is a `venue_name` row (`UNIQUE(norm, venue_id)`, norm =
   `venue_norm`), the current one included. `show.date` is `YYYY`, `YYYY-MM` or `YYYY-MM-DD` with `date_precision` and
   `sort_date` (first day of the period) from `common.parse_date`. `ON DELETE CASCADE` from `lineup`, `source`,
-  `show_person`, `image` to `show`, from `source` and `setlist_link` (one per lineup entry, schema v2) to `lineup`,
-  and from `import_row` to `import_batch`; `import_row.match_show_id` is set to NULL when its show is deleted.
-  Artists, venues, runs and people are never cascaded: a venue or artist still in use can't be deleted (merge first).
-  Timestamps are SQLite `CURRENT_TIMESTAMP` text.
+  `show_person`, `image` to `show`, from `source` and `setlist_link` (one per lineup entry, schema v2) to `lineup`, and
+  from `import_row` to `import_batch`; `import_row.match_show_id` is set to NULL when its show is deleted. Artists,
+  venues, runs and people are never cascaded: a venue or artist still in use can't be deleted (merge first). Schema v3
+  (#43): `song(id, artist_id, title, norm, in_catalog, created_at, updated_at)` `UNIQUE(artist_id, norm)` (a song is the
+  performing act's; `in_catalog` is for #44), `song_alias(artist_id, norm, song_id)` PRIMARY KEY `(artist_id, norm)`,
+  `setlist(lineup_id PRIMARY KEY, source_label, source_url, created_at, updated_at)` (one per lineup entry, cascades
+  from `lineup`), `setlist_entry(id, lineup_id, position, set_name, encore, song_id, note, segue)` `UNIQUE(lineup_id,
+  position)` (cascades from `setlist`). Songs are never cascaded: writers that drop setlist entries call
+  `records.drop_unused_songs`. Timestamps are SQLite `CURRENT_TIMESTAMP` text.
 - Access (`app.py`): `access_identity()` is `"api-key"` (`STUBS_API_KEY` as `X-API-Key` or `Authorization: Bearer`),
   `"read-key"` (`STUBS_READ_KEY`: editor reads, no writes), the email of a Cloudflare Access JWT
   (`Cf-Access-Jwt-Assertion`, RS256, audience `CF_AUD`, issuer `https://<CF_TEAM_DOMAIN>`) that is in
@@ -209,7 +228,7 @@ list and the init script's `export` line (`tests/test_installer_static.py` check
   read as `settings.X` at request time, so tests change them with `monkeypatch.setattr(settings, ...)`.
 - Frontend: a route renders into `ctx.view` (`ctx = {view, params, query, session, alive, rerender}`); check
   `ctx.alive()` after each await. Show panels and admin cards plug in through `registry.js` with an `order`
-  (spec'd orders: Edit 0, Pictures 10, Setlist 20, With 40, From a link 50; cards Did you go? 10, Coming up 15,
+  (spec'd orders: Edit 0, Pictures 10, Setlists 15, Setlist 20, With 40, From a link 50; cards Did you go? 10, Coming up 15,
   To confirm 20, Imports waiting 30, Not on the map 40). An admin card's `render(el)` may return `false` to hide
   itself; with nothing left `#/admin` says "Nothing needs you." `core.js` touches no DOM at import so `node --test`
   can load it. `document.title` is set only in `main.js`, from `session.app_name`. Deletes and confirmations use an

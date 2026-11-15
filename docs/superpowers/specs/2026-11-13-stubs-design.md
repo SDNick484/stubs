@@ -99,7 +99,8 @@ an editor/public split).
 ## 5. Data model
 
 All dates are ISO strings; timestamps are `created_at`/`updated_at` text as in Matinee. Names are matched through a
-normalized form `norm()` (section 7.2). Schema v2 (v1 had one `setlist_link` per show; see below):
+normalized form `norm()` (section 7.2). Schema v3 (v1 had one `setlist_link` per show, see below; v3 added the stored
+setlists, the last four tables):
 
 - `meta(k, v)`: `schema_version`.
 - `artist(id, name, norm, created_at, updated_at)`, `UNIQUE(norm)`.
@@ -137,6 +138,22 @@ normalized form `norm()` (section 7.2). Schema v2 (v1 had one `setlist_link` per
 - `import_row(id, batch_id, row_no, raw, parsed, verdict, match_show_id, reason, include)`: `raw` is the row as
   received (JSON), `parsed` the normalized proposal (JSON, editable in review), `verdict` ∈ `new`, `have`, `maybe`,
   `skip`.
+- `song(id, artist_id, title, norm, in_catalog, created_at, updated_at)`, `UNIQUE(artist_id, norm)`: a song belongs to
+  the act that played it (a cover is the performing act's song, with "cover" in the entry's note when the paste says
+  so), so another act's song of the same title is another song. `in_catalog` (0/1) marks the artist's song catalog.
+  Never cascaded; a song no setlist plays, outside the catalog and with no alias is deleted by the writer that left it
+  unplayed (a setlist saved or deleted, an act taken off a lineup, a show deleted, an artist merge).
+- `song_alias(artist_id, norm, song_id)`, `PRIMARY KEY(artist_id, norm)`: other spellings of a song. Titles resolve
+  within the artist by `song.norm`, then `song_alias.norm`.
+- `setlist(lineup_id PRIMARY KEY, source_label, source_url, created_at, updated_at)`: the owner's own setlist for one
+  act on one show (openers included), entered by paste or typed; `source_label` is required ("typed", "my notes", a
+  site's name). `ON DELETE CASCADE` from `lineup`. An artist merge that folds two entries on one show keeps the kept
+  entry's setlist, else takes the dropped entry's, like `setlist_link`; the dropped artist's songs fold into the kept
+  artist's by title or alias.
+- `setlist_entry(id, lineup_id, position, set_name, encore, song_id, note, segue)`, `UNIQUE(lineup_id, position)`,
+  `ON DELETE CASCADE` from `setlist`: `set_name` free text or NULL ("Set 2", "Acoustic"), `encore` 0/1, `note` free
+  text ("with a guest", "tease", "first time"), `segue` 0/1 (it ran straight into the next song). A set is a run of
+  entries with the same `set_name` and `encore`.
 
 Counts and "times I've seen X" use attended shows only. An artist's count is the number of attended shows with that
 artist in the lineup, in any role.
@@ -151,8 +168,9 @@ Matinee's access code, renamed (`STUBS_API_KEY`, `STUBS_READ_KEY`):
 - Public: `/` and `/api/` when `PUBLIC_VIEW=1` (default, as Matinee). Every response carries
   `X-Robots-Tag: noindex, nofollow`.
 
-Public: attended shows (date, billing, venue as on the ticket, city, run, tour), lineups with roles, artist, venue,
-year and city pages, stats, the map, photos, the setlist.fm panel.
+Public: attended shows (date, billing, venue as on the ticket, city, run, tour), lineups with roles, the owner's
+stored setlists (without their source), artist, venue, year and city pages, stats, the map, photos, the setlist.fm
+panel.
 
 Editor-only: upcoming shows (and their effect on any page), notes, sources, confidence and the to-confirm list,
 companions, ratings, posters and stubs (posters become public when `PUBLIC_POSTERS=1`), imports, "Did you go?".

@@ -1,4 +1,4 @@
-"""The SQLite schema (spec section 5, schema v2), connections, transactions and migrate(), plus the per-request
+"""The SQLite schema (spec section 5, schema v3), connections, transactions and migrate(), plus the per-request
 connection db() and init_db().
 
 Connections run in autocommit mode (isolation_level=None): a single statement commits on its own, and anything that
@@ -17,9 +17,47 @@ import settings
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = "2"
+SCHEMA_VERSION = "3"
 
-# The current schema (v2), which a new database gets in one step (_to_v1); _to_v2 then finds nothing to do.
+# Schema v3's tables (stored setlists), all new: what _to_v3 creates in an older database. SCHEMA ends with them, so a
+# new database gets them from _to_v1. If a later version changes one of these tables, SCHEMA gets its own copy and
+# this text stays as it is, so the step stays what it was.
+_V3_SCHEMA = """
+CREATE TABLE IF NOT EXISTS song (
+  id INTEGER PRIMARY KEY,
+  artist_id INTEGER NOT NULL REFERENCES artist(id),
+  title TEXT NOT NULL CHECK (title <> ''),
+  norm TEXT NOT NULL CHECK (norm <> ''),
+  in_catalog INTEGER NOT NULL DEFAULT 0 CHECK (in_catalog IN (0, 1)),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (artist_id, norm));
+CREATE TABLE IF NOT EXISTS song_alias (
+  artist_id INTEGER NOT NULL REFERENCES artist(id),
+  norm TEXT NOT NULL CHECK (norm <> ''),
+  song_id INTEGER NOT NULL REFERENCES song(id),
+  PRIMARY KEY (artist_id, norm));
+CREATE INDEX IF NOT EXISTS song_alias_song ON song_alias(song_id);
+CREATE TABLE IF NOT EXISTS setlist (
+  lineup_id INTEGER PRIMARY KEY REFERENCES lineup(id) ON DELETE CASCADE,
+  source_label TEXT NOT NULL CHECK (source_label <> ''),
+  source_url TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS setlist_entry (
+  id INTEGER PRIMARY KEY,
+  lineup_id INTEGER NOT NULL REFERENCES setlist(lineup_id) ON DELETE CASCADE,
+  position INTEGER NOT NULL,
+  set_name TEXT,
+  encore INTEGER NOT NULL DEFAULT 0 CHECK (encore IN (0, 1)),
+  song_id INTEGER NOT NULL REFERENCES song(id),
+  note TEXT,
+  segue INTEGER NOT NULL DEFAULT 0 CHECK (segue IN (0, 1)),
+  UNIQUE (lineup_id, position));
+CREATE INDEX IF NOT EXISTS setlist_entry_song ON setlist_entry(song_id)
+"""
+
+# The current schema (v3), which a new database gets in one step (_to_v1); _to_v2 and _to_v3 then find nothing to do.
 # Statements are separated by ";" and contain none themselves (no triggers): see _statements().
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
@@ -137,8 +175,8 @@ CREATE TABLE IF NOT EXISTS import_row (
   reason TEXT,
   include INTEGER NOT NULL DEFAULT 0 CHECK (include IN (0, 1)));
 CREATE INDEX IF NOT EXISTS import_row_batch ON import_row(batch_id, row_no);
-CREATE INDEX IF NOT EXISTS import_row_match ON import_row(match_show_id)
-"""
+CREATE INDEX IF NOT EXISTS import_row_match ON import_row(match_show_id);
+""" + _V3_SCHEMA
 
 
 def _statements(script):
@@ -230,7 +268,14 @@ def _to_v2(con):
     log.info("schema v2: %d setlist.fm link(s) moved onto their show's headlining act", moved)
 
 
-MIGRATIONS = {1: _to_v1, 2: _to_v2}  # version -> the step that brings version-1 up to it
+def _to_v3(con):
+    """Stored setlists: song, song_alias, setlist and setlist_entry, all new and empty. Nothing else changes; every
+    statement is CREATE ... IF NOT EXISTS, so a database that already has them (a new one) is left alone."""
+    for stmt in _statements(_V3_SCHEMA):
+        con.execute(stmt)
+
+
+MIGRATIONS = {1: _to_v1, 2: _to_v2, 3: _to_v3}  # version -> the step that brings version-1 up to it
 
 
 def migrate(con) -> None:
