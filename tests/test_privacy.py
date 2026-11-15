@@ -27,6 +27,7 @@ PARAM_SAMPLES = {
     "show_id": lambda s: [s.attended, s.upcoming],
     "artist_id": lambda s: [s.artist, s.opener],
     "venue_id": lambda s: [s.venue],
+    "song_id": lambda s: [s.song, s.hidden_song],
     "year": lambda s: [2005, 2099],
     "country": lambda s: ["CA"],
     "region": lambda s: ["BC"],
@@ -74,7 +75,8 @@ def seeded(con):
     b = con.execute("INSERT INTO import_batch (origin, label) VALUES ('csv', 'SECRET-IMPORT batch')").lastrowid
     con.execute("INSERT INTO import_row (batch_id, row_no, raw, parsed, verdict, include) "
                 "VALUES (?, 1, '{\"artist\": \"SECRET-IMPORT\"}', '{\"billing\": \"SECRET-IMPORT\"}', 'new', 1)", (b,))
-    return types.SimpleNamespace(venue=v, attended=attended, upcoming=upcoming, artist=artist, opener=opener)
+    return types.SimpleNamespace(venue=v, attended=attended, upcoming=upcoming, artist=artist, opener=opener,
+                                 song=song, hidden_song=hidden)
 
 
 def public_rules():

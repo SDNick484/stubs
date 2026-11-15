@@ -29,5 +29,10 @@ def stats(con) -> dict:
                             "FROM show s JOIN venue v ON v.id = s.venue_id WHERE s.status = 'attended' "
                             "GROUP BY COALESCE(v.country, ''), COALESCE(v.region, ''), v.city "
                             "ORDER BY count DESC, v.city, v.region, v.country LIMIT ?")
+    top_songs = _rows(con, "SELECT g.id AS song_id, g.title AS title, a.id AS artist_id, a.name AS artist, "
+                           "COUNT(*) AS count FROM setlist_entry e JOIN lineup l ON l.id = e.lineup_id "
+                           "JOIN show s ON s.id = l.show_id JOIN song g ON g.id = e.song_id "
+                           "JOIN artist a ON a.id = g.artist_id WHERE s.status = 'attended' "
+                           "GROUP BY g.id ORDER BY count DESC, g.title, g.id LIMIT ?")
     return {"totals": totals, "per_year": per_year, "top_artists": top_artists, "top_venues": top_venues,
-            "top_cities": top_cities}
+            "top_cities": top_cities, "top_songs": top_songs}
