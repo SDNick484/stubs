@@ -1,0 +1,27 @@
+{
+  "created": "2026-11-15T10:00:00.000Z",
+  "count": 2,
+  "offset": 0,
+  "artists": [
+    {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "type": "Group",
+      "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+      "score": 100,
+      "name": "Marigold Static",
+      "sort-name": "Marigold Static",
+      "country": "US",
+      "disambiguation": "synth-pop"
+    },
+    {
+      "id": "55555555-5555-4555-8555-555555555555",
+      "type": "Group",
+      "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+      "score": 100,
+      "name": "Marigold Static",
+      "sort-name": "Marigold Static",
+      "country": "AU",
+      "disambiguation": "noise rock"
+    }
+  ]
+}

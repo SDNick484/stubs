@@ -169,6 +169,22 @@ function wire(section, kind, ctx) {
       say("");
     }
   });
+  return { choose, say };
+}
+
+// The artist form of "#/admin/merge?keep=<id>&drop=<id>" (the MusicBrainz 409 links here): both pickers filled in.
+async function preselect(wired, ctx) {
+  for (const slot of ["keep", "drop"]) {
+    const id = ctx.query?.[slot];
+    if (!/^\d+$/.test(id ?? "")) continue;
+    try {
+      const a = await get(`/admin/api/artists/${id}`);
+      if (!ctx.alive()) return;
+      wired.choose(slot, { id: a.id, name: a.name, shows: a.shows.length + (a.upcoming?.length ?? 0) });
+    } catch (e) {
+      if (ctx.alive()) wired.say(e.error ?? "Couldn't load that artist.", true);
+    }
+  }
 }
 
 export async function renderMerge(ctx) {
@@ -182,5 +198,7 @@ export async function renderMerge(ctx) {
 spelling or a former name.</p>
 ${renderSection("artists")}
 ${renderSection("venues")}`;
-  for (const kind of Object.keys(KINDS)) wire(view.querySelector(`.merge[data-kind="${kind}"]`), kind, ctx);
+  const wired = {};
+  for (const kind of Object.keys(KINDS)) wired[kind] = wire(view.querySelector(`.merge[data-kind="${kind}"]`), kind, ctx);
+  await preselect(wired.artists, ctx);
 }

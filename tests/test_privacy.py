@@ -18,9 +18,10 @@ import settings
 from conftest import mk_artist, mk_show, mk_venue
 
 MARKERS = ("SECRET-UPCOMING", "SECRET-NOTE", "SECRET-CONF", "SECRET-SOURCE", "SECRET-PERSON", "secret-poster",
-           "secret-stub", "SECRET-IMPORT", "SECRET-SETLIST")
+           "secret-stub", "SECRET-IMPORT", "SECRET-SETLIST", "SECRET-MBNOTE")
 UPCOMING_YEAR = "2099"  # the upcoming show's year: no public page may list it, not even as a year with 0 shows
-EDITOR_KEYS = {"notes", "rating", "confidence", "confidence_note", "sources", "version", "source_label", "source_url"}
+EDITOR_KEYS = {"notes", "rating", "confidence", "confidence_note", "sources", "version", "source_label", "source_url",
+               "mb_disambiguation"}
 
 # Path parameter name -> the values to try, from the `seeded` namespace.
 PARAM_SAMPLES = {
@@ -51,6 +52,9 @@ def seeded(con):
     con.execute("INSERT INTO source (show_id, label, url) VALUES (?, 'SECRET-SOURCE show', "
                 "'https://concerts.example.com/SECRET-SOURCE')", (attended,))
     con.execute("INSERT INTO source (show_id, lineup_id, label) VALUES (?, ?, 'SECRET-SOURCE opener')", (attended, lid))
+    # a MusicBrainz link: the id is public, the note MusicBrainz gave it is editors-only
+    con.execute("UPDATE artist SET mbid = '11111111-1111-4111-8111-111111111111', mb_disambiguation = 'SECRET-MBNOTE' "
+                "WHERE id = ?", (artist,))
     p = con.execute("INSERT INTO person (name) VALUES ('SECRET-PERSON Sam')").lastrowid
     con.execute("INSERT INTO show_person (show_id, person_id) VALUES (?, ?)", (attended, p))
     con.execute("INSERT INTO image (show_id, kind, file, caption) VALUES (?, 'poster', 'secret-poster-1.jpg', "
@@ -133,6 +137,12 @@ def test_no_editor_data_on_public_routes(client, seeded):
                 assert not leaked, f"{url} has editor-only keys {sorted(leaked)}"
             walked += 1
     assert walked >= len(QUERIES)
+
+
+def test_the_public_artist_has_the_mbid_but_not_its_note(client, seeded):
+    a = client.get(f"/api/artists/{seeded.artist}").get_json()
+    assert a["mbid"] == "11111111-1111-4111-8111-111111111111"
+    assert "mb_disambiguation" not in a
 
 
 def test_the_public_show_has_the_setlist_without_its_source(client, seeded):

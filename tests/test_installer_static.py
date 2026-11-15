@@ -41,7 +41,8 @@ def test_build_produces_a_valid_installer():
 def test_every_setting_has_env_example_and_add_setting():
     keys = _settings_keys()
     assert {"PORT", "DATA_DIR", "CF_TEAM_DOMAIN", "CF_AUD", "ADMIN_EMAILS", "LAN_EDIT", "LAN_HOSTS", "PUBLIC_VIEW",
-            "PUBLIC_POSTERS", "STUBS_API_KEY", "STUBS_READ_KEY", "SETLISTFM_API_KEY", "GEOCODER_URL", "TILE_URL"} == keys
+            "PUBLIC_POSTERS", "STUBS_API_KEY", "STUBS_READ_KEY", "SETLISTFM_API_KEY", "GEOCODER_URL", "MUSICBRAINZ_URL",
+            "TILE_URL"} == keys
     env_example, head = _read(".env.example"), _read("installer/setup-head.sh")
     exports = re.search(r"^export (PORT .*)$", head, re.M)
     assert exports, "the init script exports the settings on one `export PORT ...` line"

@@ -97,6 +97,7 @@ add_setting "$CONF" STUBS_API_KEY "" "Write key for scripts (X-API-Key or Author
 add_setting "$CONF" STUBS_READ_KEY "" "Read-only key for scripts; empty = none"
 add_setting "$CONF" SETLISTFM_API_KEY "" "setlist.fm API key for the setlist panel; empty = panel lookups off"
 add_setting "$CONF" GEOCODER_URL "https://nominatim.openstreetmap.org/search" "Nominatim search endpoint for venue coordinates"
+add_setting "$CONF" MUSICBRAINZ_URL "https://musicbrainz.org/ws/2" "MusicBrainz web service root for artist links"
 add_setting "$CONF" TILE_URL "https://tile.openstreetmap.org/{z}/{x}/{y}.png" "Map tiles (this host is allowed in the CSP)"
 # Holds API keys, so root only: OpenRC runs as root and exports what the service needs.
 chmod 600 "$CONF"; chown root:root "$CONF"
@@ -133,7 +134,7 @@ description="Stubs concert history (Flask + gunicorn, loopback only)"
 : ${PORT:=8773}
 : ${DATA_DIR:=/var/lib/stubs}
 export HOME=/var/lib/stubs  # newer gunicorn keeps a small control socket under $HOME
-export PORT DATA_DIR CF_TEAM_DOMAIN CF_AUD ADMIN_EMAILS LAN_EDIT LAN_HOSTS PUBLIC_VIEW PUBLIC_POSTERS STUBS_API_KEY STUBS_READ_KEY SETLISTFM_API_KEY GEOCODER_URL TILE_URL
+export PORT DATA_DIR CF_TEAM_DOMAIN CF_AUD ADMIN_EMAILS LAN_EDIT LAN_HOSTS PUBLIC_VIEW PUBLIC_POSTERS STUBS_API_KEY STUBS_READ_KEY SETLISTFM_API_KEY GEOCODER_URL MUSICBRAINZ_URL TILE_URL
 supervisor="supervise-daemon"
 respawn_delay=5
 respawn_max=10

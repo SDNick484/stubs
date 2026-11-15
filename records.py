@@ -27,8 +27,13 @@ def _choice(value, allowed, what):
 
 
 # ---------------------------------------------------------------- artists
-def resolve_artist(con, name) -> "int | None":
-    """The artist this name means: `artist.norm` first, then `artist_alias.norm`. None when unknown or blank."""
+def resolve_artist(con, name, mbid=None) -> "int | None":
+    """The artist this name means: `artist.mbid` first (when an mbid is given: a MusicBrainz id beats any spelling),
+    then `artist.norm`, then `artist_alias.norm`. None when unknown or blank."""
+    if mbid:
+        row = con.execute("SELECT id FROM artist WHERE mbid = ?", (mbid,)).fetchone()
+        if row:
+            return row["id"]
     n = norm(name)
     if not n:
         return None
@@ -38,13 +43,15 @@ def resolve_artist(con, name) -> "int | None":
     return row["id"] if row else None
 
 
-def get_or_create_artist(con, name) -> int:
+def get_or_create_artist(con, name, mbid=None) -> int:
+    """resolve_artist (mbid, norm, alias), else a new artist; a new one stores `mbid` (a validated, lowercase UUID)."""
     name = _name(name, "Artist name")
     with transaction(con):
-        found = resolve_artist(con, name)
+        found = resolve_artist(con, name, mbid)
         if found is not None:
             return found
-        return con.execute("INSERT INTO artist (name, norm) VALUES (?, ?)", (name, norm(name))).lastrowid
+        return con.execute("INSERT INTO artist (name, norm, mbid) VALUES (?, ?, ?)",
+                           (name, norm(name), mbid or None)).lastrowid
 
 
 # ---------------------------------------------------------------- songs (schema v3)

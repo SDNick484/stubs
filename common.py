@@ -10,10 +10,11 @@ from flask import request
 class ApiError(Exception):
     """Raised anywhere while handling a request; app.py renders it as {"error": message} with this status."""
 
-    def __init__(self, status: int, message: str):
+    def __init__(self, status: int, message: str, **extra):
         super().__init__(message)
         self.status = status
         self.message = message
+        self.extra = extra  # more keys for the JSON body (a 409 that names the record in the way)
 
 
 # ---------------------------------------------------------------- request bodies

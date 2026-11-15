@@ -15,6 +15,7 @@ in any key the environment does not already have (as Matinee). An empty value me
   STUBS_READ_KEY     read-only key for scripts: reads what an editor reads, writes nothing; empty means none
   SETLISTFM_API_KEY  setlist.fm API key for the show page's setlist panel; empty turns the panel's lookups off
   GEOCODER_URL       Nominatim search endpoint (default https://nominatim.openstreetmap.org/search)
+  MUSICBRAINZ_URL    MusicBrainz web service root for artist links (default https://musicbrainz.org/ws/2)
   TILE_URL           map tile URL template (default https://tile.openstreetmap.org/{z}/{x}/{y}.png); its host is
                      allowed in the Content-Security-Policy's img-src
 """
@@ -88,4 +89,5 @@ STUBS_API_KEY = (os.environ.get("STUBS_API_KEY") or "").strip()
 STUBS_READ_KEY = (os.environ.get("STUBS_READ_KEY") or "").strip()
 SETLISTFM_API_KEY = (os.environ.get("SETLISTFM_API_KEY") or "").strip()
 GEOCODER_URL = (os.environ.get("GEOCODER_URL") or "").strip() or "https://nominatim.openstreetmap.org/search"
+MUSICBRAINZ_URL = ((os.environ.get("MUSICBRAINZ_URL") or "").strip() or "https://musicbrainz.org/ws/2").rstrip("/")
 TILE_URL = (os.environ.get("TILE_URL") or "").strip() or "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
