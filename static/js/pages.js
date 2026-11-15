@@ -4,6 +4,7 @@
 import { get } from "./api.js";
 import { esc, fmtDate, placeLabel, renderShowRow, roleLabel } from "./core.js";
 import { cityHref } from "./stats.js";
+import { mountMbControls, renderMbBlock } from "./musicbrainz.js";
 
 const ROLE_ORDER = ["headliner", "coheadliner", "opener", "performer"];
 
@@ -53,7 +54,9 @@ const renderPage = (title, summary, d, empty) =>
 export async function showArtist(ctx) {
   const a = await get(`${apiBase()}/artists/${encodeURIComponent(ctx.params.id)}`);
   if (!ctx.alive()) return;
-  ctx.view.innerHTML = renderPage(a.name, renderArtistSummary(a), a, "No shows yet.");
+  const editor = apiBase() === "/admin/api" && Boolean(ctx.session?.editor);
+  ctx.view.innerHTML = renderPage(a.name, renderArtistSummary(a) + renderMbBlock(a, editor), a, "No shows yet.");
+  if (editor) mountMbControls(ctx, a);
 }
 
 export async function showVenue(ctx) {

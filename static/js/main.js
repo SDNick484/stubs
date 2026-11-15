@@ -151,6 +151,11 @@ import { showArtistWithSongs, showSong } from "./songs.js";
 route("artist/:id", ctx => showArtistWithSongs(showArtist, ctx)); // the artist page, plus its songs
 route("song/:id", showSong);
 
+// ==== Post-v1 #45
+import { renderArtistsPage, renderUnlinkedCard } from "./musicbrainz.js";
+route("admin/artists", renderArtistsPage);
+registerAdminCard("Artists without a MusicBrainz link", { order: 45, render: renderUnlinkedCard });
+
 
 // ---------------------------------------------------------------- the router (runs after every route is registered)
 const host = document.getElementById("app");
