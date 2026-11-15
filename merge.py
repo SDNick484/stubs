@@ -29,7 +29,8 @@ def merge_artists(con, keep_id, drop_id) -> None:
     """Fold artist drop_id into keep_id. Lineup entries move; where both are on one show the kept entry stays as it
     is (role, position, confidence; a missing rating is filled from the dropped entry), the dropped entry's sources
     move to it, so do its setlist link and its stored setlist if the kept entry has none (else they cascade away),
-    and the dropped entry goes. Songs fold in (_merge_songs). Aliases move, the dropped name becomes an alias, the
+    and the dropped entry goes. Songs fold in (_merge_songs). The kept artist keeps its MusicBrainz id, else takes the
+    dropped one's (with its note). Aliases move, the dropped name becomes an alias, the
     artist is deleted."""
     _ids(keep_id, drop_id, "artist")
     with transaction(con):
@@ -56,6 +57,10 @@ def merge_artists(con, keep_id, drop_id) -> None:
                     "ON CONFLICT(norm) DO UPDATE SET artist_id = excluded.artist_id", (drop["norm"], keep_id))
         con.execute("DELETE FROM artist_alias WHERE norm = ?", (keep["norm"],))
         con.execute("DELETE FROM artist WHERE id = ?", (drop_id,))
+        # the MusicBrainz link: the kept artist's, else the dropped one's (taken after the delete frees its unique id)
+        if keep["mbid"] is None and drop["mbid"] is not None:
+            con.execute("UPDATE artist SET mbid = ?, mb_disambiguation = ? WHERE id = ?",
+                        (drop["mbid"], drop["mb_disambiguation"], keep_id))
         con.execute("UPDATE artist SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (keep_id,))
 
 

@@ -38,7 +38,7 @@ service and keeps the data, config and backups.
 
 Every setting, with its default, is in `.env.example` (and in `/etc/conf.d/stubs` on the host): `PORT`, `DATA_DIR`,
 `CF_TEAM_DOMAIN`, `CF_AUD`, `ADMIN_EMAILS`, `LAN_EDIT`, `LAN_HOSTS`, `PUBLIC_VIEW`, `PUBLIC_POSTERS`,
-`STUBS_API_KEY`, `STUBS_READ_KEY`, `SETLISTFM_API_KEY`, `GEOCODER_URL`, `TILE_URL`.
+`STUBS_API_KEY`, `STUBS_READ_KEY`, `SETLISTFM_API_KEY`, `GEOCODER_URL`, `MUSICBRAINZ_URL`, `TILE_URL`.
 
 Scripts use `STUBS_API_KEY` (writes) or `STUBS_READ_KEY` (reads) as `X-API-Key: <key>` or
 `Authorization: Bearer <key>`.

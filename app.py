@@ -148,7 +148,7 @@ def security_headers(resp):
 
 @app.errorhandler(ApiError)
 def api_error(e):
-    return jsonify(error=e.message), e.status
+    return jsonify(error=e.message, **e.extra), e.status
 
 
 @app.errorhandler(HTTPException)
@@ -997,6 +997,42 @@ def song_merge():
     """{"keep", "drop"} -> {"keep", "moved"}; the same act's songs only (400)."""
     keep, drop = _t15_pair()
     return jsonify(songs.merge_songs(db(), keep, drop))
+
+
+# ==== Post-v1 #45: MusicBrainz
+# Link an artist to MusicBrainz (musicbrainz.py): the editor picks from the search results, nothing links itself. The
+# lookup is made by the server (the browser's connect-src is 'self'). The public artist page carries the mbid.
+import musicbrainz  # noqa: E402
+
+
+@app.get("/admin/api/artists/unlinked")
+@editor_required
+def mb_unlinked():
+    """-> {"artists": [{"id", "name", "shows"}]}, the busiest first: artists without a MusicBrainz id."""
+    return jsonify(artists=musicbrainz.unlinked(db()))
+
+
+@app.get("/admin/api/artists/<int:artist_id>/musicbrainz/search")
+@editor_required
+def mb_search(artist_id):
+    """-> {"candidates": [{"mbid", "name", "disambiguation", "country", "score"}], "exact": mbid or null}. 502
+    "Lookup failed" when MusicBrainz can't be reached. Stores nothing."""
+    return jsonify(musicbrainz.suggest(db(), artist_id))
+
+
+@app.put("/admin/api/artists/<int:artist_id>/musicbrainz")
+@editor_required
+def mb_link(artist_id):
+    """{"mbid", "disambiguation"?} -> {"id", "name", "mbid", "mb_disambiguation"}; 409 (with "artist_id") when
+    another artist has the id."""
+    data = json_body()
+    return jsonify(musicbrainz.link(db(), artist_id, data.get("mbid"), data.get("disambiguation")))
+
+
+@app.delete("/admin/api/artists/<int:artist_id>/musicbrainz")
+@editor_required
+def mb_unlink(artist_id):
+    return jsonify(musicbrainz.unlink(db(), artist_id))
 
 
 init_db()

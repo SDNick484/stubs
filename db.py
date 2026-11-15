@@ -1,4 +1,4 @@
-"""The SQLite schema (spec section 5, schema v3), connections, transactions and migrate(), plus the per-request
+"""The SQLite schema (spec section 5, schema v4), connections, transactions and migrate(), plus the per-request
 connection db() and init_db().
 
 Connections run in autocommit mode (isolation_level=None): a single statement commits on its own, and anything that
@@ -17,7 +17,7 @@ import settings
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = "3"
+SCHEMA_VERSION = "4"
 
 # Schema v3's tables (stored setlists), all new: what _to_v3 creates in an older database. SCHEMA ends with them, so a
 # new database gets them from _to_v1. If a later version changes one of these tables, SCHEMA gets its own copy and
@@ -57,7 +57,8 @@ CREATE TABLE IF NOT EXISTS setlist_entry (
 CREATE INDEX IF NOT EXISTS setlist_entry_song ON setlist_entry(song_id)
 """
 
-# The current schema (v3), which a new database gets in one step (_to_v1); _to_v2 and _to_v3 then find nothing to do.
+# The current schema (v4), which a new database gets in one step (_to_v1); _to_v2, _to_v3 and _to_v4 then find nothing
+# to do.
 # Statements are separated by ";" and contain none themselves (no triggers): see _statements().
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
@@ -67,7 +68,10 @@ CREATE TABLE IF NOT EXISTS artist (
   norm TEXT NOT NULL CHECK (norm <> ''),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  mbid TEXT,
+  mb_disambiguation TEXT,
   UNIQUE (norm));
+CREATE UNIQUE INDEX IF NOT EXISTS artist_mbid ON artist(mbid) WHERE mbid IS NOT NULL;
 CREATE TABLE IF NOT EXISTS artist_alias (
   norm TEXT PRIMARY KEY CHECK (norm <> ''),
   artist_id INTEGER NOT NULL REFERENCES artist(id));
@@ -275,7 +279,18 @@ def _to_v3(con):
         con.execute(stmt)
 
 
-MIGRATIONS = {1: _to_v1, 2: _to_v2, 3: _to_v3}  # version -> the step that brings version-1 up to it
+def _to_v4(con):
+    """MusicBrainz links: artist.mbid (NULL allowed, unique where set) and artist.mb_disambiguation. Existing rows keep
+    everything and get NULLs. A new database already has both columns from SCHEMA, so the ALTERs are skipped for a
+    column that is there and the index is IF NOT EXISTS."""
+    have = {r[1] for r in con.execute("PRAGMA table_info(artist)")}
+    for col in ("mbid", "mb_disambiguation"):
+        if col not in have:
+            con.execute(f"ALTER TABLE artist ADD COLUMN {col} TEXT")
+    con.execute("CREATE UNIQUE INDEX IF NOT EXISTS artist_mbid ON artist(mbid) WHERE mbid IS NOT NULL")
+
+
+MIGRATIONS = {1: _to_v1, 2: _to_v2, 3: _to_v3, 4: _to_v4}  # version -> the step that brings version-1 up to it
 
 
 def migrate(con) -> None:

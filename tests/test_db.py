@@ -1,4 +1,5 @@
-"""The schema (spec section 5, now v3), migrate() with its v1 -> v2 and v2 -> v3 steps, and the connection settings."""
+"""The schema (spec section 5, now v4), migrate() with its v1 -> v2, v2 -> v3 and v3 -> v4 steps, and the connection
+settings."""
 import logging
 import re
 import sqlite3
@@ -23,8 +24,8 @@ def tables(con):
 def test_migrate_creates_every_table(con):
     names = tables(con)
     assert TABLES <= names
-    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "3"
-    assert db.SCHEMA_VERSION == "3"
+    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "4"
+    assert db.SCHEMA_VERSION == "4"
 
 
 def test_migrate_is_idempotent(con):
@@ -33,7 +34,7 @@ def test_migrate_is_idempotent(con):
     db.migrate(con)
     assert tables(con) == before
     assert con.execute("SELECT COUNT(*) FROM meta").fetchone()[0] == 1
-    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "3"
+    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "4"
 
 
 def test_migrate_keeps_data(con):
@@ -190,9 +191,24 @@ V1_SETLIST_LINK = """CREATE TABLE IF NOT EXISTS setlist_link (
   url TEXT NOT NULL)"""
 
 
+def v3_statements():
+    """Today's SCHEMA without what schema v4 added (artist's mbid and mb_disambiguation, and the unique index on mbid):
+    what a v3 database was made of."""
+    out = []
+    for s in db._statements(db.SCHEMA):
+        if re.search(r"\bINDEX IF NOT EXISTS artist_mbid\b", s):
+            continue
+        if s.startswith("CREATE TABLE IF NOT EXISTS artist ("):
+            s = re.sub(r"\s*mbid TEXT,\s*mb_disambiguation TEXT,", "", s)
+            assert "mbid" not in s
+        out.append(s)
+    return out
+
+
 def v2_statements():
-    """Today's SCHEMA without the tables and indexes schema v3 added: what a v2 database was made of."""
-    return [s for s in db._statements(db.SCHEMA)
+    """Today's SCHEMA without the tables and indexes schema v3 added, and without v4's artist columns: what a v2
+    database was made of."""
+    return [s for s in v3_statements()
             if not re.search(r"\b(?:TABLE|ON) (?:IF NOT EXISTS )?(?:%s)\b" % "|".join(V3_TABLES), s)]
 
 
@@ -253,7 +269,7 @@ def test_v2_moves_each_link_onto_the_headlining_entry(v1, caplog):
     con, s = v1
     with caplog.at_level(logging.WARNING, logger="db"):
         db.migrate(con)
-    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "3"
+    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "4"
     assert links(con) == {
         entry_id(con, s.headliner, "The Paper Lanterns"): "aaa111",  # headliner, lowest position
         entry_id(con, s.coheadliners, "Velvet Arcade"): "bbb222",   # no headliner: the first coheadliner
@@ -330,9 +346,14 @@ def v2_database(path):
     return con
 
 
+def columns(con, table):
+    return {r[1] for r in con.execute(f"PRAGMA table_info({table})")}
+
+
 def everything(con, skip=V3_TABLES):
-    """Every row of every table but the v3 ones, by table name."""
-    return {t: sorted(tuple(r) for r in con.execute(f'SELECT * FROM "{t}"'))
+    """Every row of every table but the v3 ones, by table name (artist without v4's columns)."""
+    return {t: sorted(tuple(r) for r in con.execute(
+        'SELECT id, name, norm, created_at, updated_at FROM artist' if t == "artist" else f'SELECT * FROM "{t}"'))
             for t in sorted(tables(con)) if t not in skip and t != "meta"}
 
 
@@ -356,7 +377,7 @@ def test_v3_keeps_every_v2_row(v2):
     con, show = v2
     before = everything(con)
     db.migrate(con)
-    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "3"
+    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "4"
     assert everything(con) == before
     assert links(con) == {entry_id(con, show, "Marigold Static"): "abc123"}  # the per-act link is untouched
     for table in V3_TABLES:
@@ -385,11 +406,12 @@ def test_v3_migrating_twice_changes_nothing(v2):
     assert list(con.iterdump()) == dump
 
 
-def test_v1_still_reaches_v3(v1):
+def test_v1_still_reaches_v4(v1):
     con, s = v1
     db.migrate(con)
-    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "3"
+    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "4"
     assert TABLES <= tables(con)
+    assert {"mbid", "mb_disambiguation"} <= columns(con, "artist")
     assert len(links(con)) == 3
     assert con.execute("PRAGMA foreign_key_check").fetchall() == []
 
@@ -459,3 +481,94 @@ def test_setlist_cascades_from_the_lineup_and_the_show(con):
     assert con.execute("SELECT COUNT(*) FROM setlist").fetchone()[0] == 0
     assert con.execute("SELECT COUNT(*) FROM setlist_entry").fetchone()[0] == 0
     assert con.execute("SELECT COUNT(*) FROM song").fetchone()[0] == 1  # songs are never cascaded
+
+
+# ---------------------------------------------------------------- the v3 -> v4 step (MusicBrainz links)
+def v3_database(path):
+    """A database as schema v3 left it: today's tables without artist.mbid, artist.mb_disambiguation and artist_mbid."""
+    con = db.connect(path)
+    for stmt in v3_statements():
+        con.execute(stmt)
+    con.execute("INSERT INTO meta (k, v) VALUES ('schema_version', '3')")
+    return con
+
+
+@pytest.fixture
+def v3(tmp_path):
+    con = v3_database(tmp_path / "v3.db")
+    assert not {"mbid", "mb_disambiguation"} & columns(con, "artist")
+    v = mk_venue(con, "Granite Hall")
+    mk_show(con, "The Paper Lanterns", "2025-07-19", v, lineup=(("Marigold Static", "opener"), ("The Paper Lanterns", "headliner")))
+    con.execute("INSERT INTO artist_alias (norm, artist_id) VALUES ('the paper lantern', ?)", (mk_artist(con, "The Paper Lanterns"),))
+    yield con
+    con.close()
+
+
+def artist_rows(con):
+    return sorted(tuple(r) for r in con.execute("SELECT id, name, norm, created_at, updated_at FROM artist"))
+
+
+def test_v4_keeps_every_v3_row_and_adds_null_columns(v3):
+    before = everything(v3, skip=())
+    db.migrate(v3)
+    assert v3.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "4"
+    assert everything(v3, skip=()) == before
+    assert artist_rows(v3) == before["artist"]
+    assert v3.execute("SELECT COUNT(*) FROM artist WHERE mbid IS NULL AND mb_disambiguation IS NULL").fetchone()[0] == 2
+
+
+def test_v4_artist_table_is_the_same_as_a_new_databases(v3, con):
+    db.migrate(v3)
+    for pragma in ("table_info", "index_list"):
+        assert [tuple(r) for r in v3.execute(f"PRAGMA {pragma}(artist)")] == \
+            [tuple(r) for r in con.execute(f"PRAGMA {pragma}(artist)")], pragma
+    names = lambda c: {r[0] for r in c.execute("SELECT name FROM sqlite_master")}  # noqa: E731
+    assert names(v3) == names(con)
+    assert v3.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+
+
+def test_v4_mbid_is_unique_where_set(v3):
+    db.migrate(v3)
+    a, b = (r[0] for r in v3.execute("SELECT id FROM artist ORDER BY id"))
+    u = "11111111-1111-4111-8111-111111111111"
+    v3.execute("UPDATE artist SET mbid = ? WHERE id = ?", (u, a))
+    with pytest.raises(sqlite3.IntegrityError):
+        v3.execute("UPDATE artist SET mbid = ? WHERE id = ?", (u, b))
+    v3.execute("UPDATE artist SET mbid = NULL WHERE id = ?", (b,))  # any number of artists may have none
+    assert v3.execute("SELECT COUNT(*) FROM artist WHERE mbid IS NULL").fetchone()[0] == 1
+    v3.execute("UPDATE artist SET mbid = NULL WHERE id = ?", (a,))
+    assert v3.execute("SELECT COUNT(*) FROM artist WHERE mbid IS NULL").fetchone()[0] == 2
+
+
+def test_v4_migrating_twice_changes_nothing(v3):
+    db.migrate(v3)
+    dump = list(v3.iterdump())
+    db.migrate(v3)
+    db.MIGRATIONS[4](v3)  # the step itself is idempotent too
+    assert list(v3.iterdump()) == dump
+
+
+def test_v2_still_reaches_v4(tmp_path):
+    con = v2_database(tmp_path / "v2.db")
+    mk_artist(con, "Cold Harbor")
+    db.migrate(con)
+    assert con.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "4"
+    assert {"mbid", "mb_disambiguation"} <= columns(con, "artist")
+    assert con.execute("SELECT name FROM artist").fetchone()[0] == "Cold Harbor"
+
+
+def test_v4_failing_part_way_leaves_v3_intact(v3, monkeypatch):
+    before = list(v3.iterdump())
+    real = db.MIGRATIONS[4]
+
+    def step_then_fail(c):
+        real(c)
+        raise RuntimeError("disk full")
+
+    monkeypatch.setitem(db.MIGRATIONS, 4, step_then_fail)
+    with pytest.raises(RuntimeError):
+        db.migrate(v3)
+    assert list(v3.iterdump()) == before
+    monkeypatch.setitem(db.MIGRATIONS, 4, real)
+    db.migrate(v3)
+    assert "mbid" in columns(v3, "artist")

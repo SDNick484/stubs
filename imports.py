@@ -16,6 +16,7 @@ import json
 import re
 from datetime import date as Date, timedelta
 
+import musicbrainz
 import records
 from common import ApiError, norm, parse_date, period_end, text, venue_norm
 from db import transaction
@@ -78,10 +79,19 @@ def _acts(items):
         if norm(name) in seen:
             raise ApiError(400, f"{name} is listed twice in acts.")
         seen.add(norm(name))
-        out.append({"name": name, "role": _choice(a, "role", records.ROLES, "headliner"),
-                    "confidence": _choice(a, "confidence", records.CONFIDENCES, "confirmed"),
-                    "confidence_note": text(a, "confidence_note", LEN["note"]),
-                    "sources": _sources(_list(a, "sources"), f"{name}: ")})
+        raw_mbid = a.get("mbid")
+        mbid = None
+        if raw_mbid not in (None, ""):
+            mbid = musicbrainz.valid_mbid(raw_mbid)
+            if mbid is None:
+                raise ApiError(400, f"{name}: mbid must be a MusicBrainz ID (a UUID).")
+        act = {"name": name, "role": _choice(a, "role", records.ROLES, "headliner"),
+               "confidence": _choice(a, "confidence", records.CONFIDENCES, "confirmed"),
+               "confidence_note": text(a, "confidence_note", LEN["note"]),
+               "sources": _sources(_list(a, "sources"), f"{name}: ")}
+        if mbid:  # optional: the key is there only when the act carries one
+            act["mbid"] = mbid
+        out.append(act)
     return out
 
 
@@ -148,8 +158,8 @@ def _validate_row(p, row_no):
 
 
 # ---------------------------------------------------------------- matching
-def _artist_key(con, name):
-    aid = records.resolve_artist(con, name)
+def _artist_key(con, name, mbid=None):
+    aid = records.resolve_artist(con, name, mbid)
     return ("id", aid) if aid is not None else ("name", norm(name))
 
 
@@ -169,7 +179,7 @@ def _side(date_s, venue_id, venue, city, region, billing, artists, show_id=None,
 def _proposal_side(con, p, row_no=None):
     names = {}
     for a in p["acts"]:
-        names.setdefault(_artist_key(con, a["name"]), a["name"])
+        names.setdefault(_artist_key(con, a["name"], a.get("mbid")), a["name"])
     side = _side(p["date"], records.find_venue(con, p["venue"], p["city"]), venue_norm(p["venue"]), p["city"],
                  p["region"], p["billing"], set(names), row_no=row_no)
     side["names"] = names
@@ -319,7 +329,7 @@ def _differs(con, p, show_id):
         "status": p["status"] == s["status"],
         "billing": norm(p["billing"]) == norm(s["billing"]),
         "venue": norm(p["venue"]) == norm(s["venue_label"]),
-        "acts": [(_artist_key(con, a["name"]), a["role"], a["confidence"]) for a in p["acts"]] == lineup,
+        "acts": [(_artist_key(con, a["name"], a.get("mbid")), a["role"], a["confidence"]) for a in p["acts"]] == lineup,
         "run": norm(p["run"]) == norm(s["run_name"]),
         "tour": (p["tour"] or "") == (s["tour"] or "").strip(),
         "notes": (p["notes"] or "") == (s["notes"] or "").strip(),
@@ -388,7 +398,7 @@ def _create(con, p, label):
                                   venue_label=p["venue"], run_id=run_id, tour=p["tour"], notes=p["notes"],
                                   confidence=p["confidence"], confidence_note=p["confidence_note"])
     for a in p["acts"]:
-        artist_id = records.get_or_create_artist(con, a["name"])
+        artist_id = records.get_or_create_artist(con, a["name"], a.get("mbid"))
         row = con.execute("SELECT id FROM lineup WHERE show_id = ? AND artist_id = ?", (show_id, artist_id)).fetchone()
         # two spellings of one artist (an alias) on one bill: one entry, carrying both entries' sources
         lineup_id = row["id"] if row else records.add_lineup_entry(

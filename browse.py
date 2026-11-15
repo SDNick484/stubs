@@ -122,10 +122,11 @@ def _with_upcoming(d, upcoming):
 
 # ---------------------------------------------------------------- artists, venues, years, cities
 def artist_detail(con, artist_id, *, editor) -> dict | None:
-    """{"id", "name", "times", "first", "last", "by_role", "shows", "upcoming" (editors only)}. times counts the
+    """{"id", "name", "mbid" (the MusicBrainz id, public; None when unlinked), "mb_disambiguation" (editors only),
+    "times", "first", "last", "by_role", "shows", "upcoming" (editors only)}. times counts the
     attended shows the artist is on in any role; by_role has only the roles with a count; first and last are the
     oldest and newest attended dates (None with no attended show). shows are show rows with the artist's "role"."""
-    a = con.execute("SELECT id, name FROM artist WHERE id = ?", (artist_id,)).fetchone()
+    a = con.execute("SELECT id, name, mbid, mb_disambiguation FROM artist WHERE id = ?", (artist_id,)).fetchone()
     if a is None:
         return None
     rows = con.execute(f"SELECT {_COLUMNS}, l.role AS role {_FROM} JOIN lineup l ON l.show_id = s.id "
@@ -134,9 +135,11 @@ def artist_detail(con, artist_id, *, editor) -> dict | None:
     if not shows and not editor:
         return None
     counts = Counter(r["role"] for r in shows)
-    d = {"id": a["id"], "name": a["name"], "times": len(shows),
+    d = {"id": a["id"], "name": a["name"], "mbid": a["mbid"], "times": len(shows),
          "first": shows[-1]["date"] if shows else None, "last": shows[0]["date"] if shows else None,
          "by_role": {role: counts[role] for role in ROLES if counts[role]}, "shows": shows}
+    if editor:
+        d["mb_disambiguation"] = a["mb_disambiguation"]
     return _with_upcoming(d, upcoming)
 
 
