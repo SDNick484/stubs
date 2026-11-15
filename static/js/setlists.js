@@ -14,8 +14,14 @@ const renderSegue = segue => (segue ? ` <span class="setlists-segue" title="Stra
 const renderNew = song => (song.song_id === null ? ` <span class="tag setlists-new">new</span>` : "");
 const renderMarks = (song, marking) => (marking ? renderNew(song) : "");
 
+// A stored song links to its page (#44); one with no song_id yet (the preview's new songs) is just text.
+const renderTitle = song =>
+  song.song_id === null || song.song_id === undefined
+    ? `<span class="setlists-title">${esc(song.title)}</span>`
+    : `<a class="setlists-title" href="#/song/${esc(song.song_id)}">${esc(song.title)}</a>`;
+
 function renderSong(song, marking) {
-  return `<li><span class="setlists-title">${esc(song.title)}</span>${renderSegue(song.segue)}${renderNote(song.note)}${renderMarks(song, marking)}</li>`;
+  return `<li>${renderTitle(song)}${renderSegue(song.segue)}${renderNote(song.note)}${renderMarks(song, marking)}</li>`;
 }
 
 const renderSongItems = (songs, marking) => songs.map(s => renderSong(s, marking)).join("");

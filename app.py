@@ -934,6 +934,71 @@ def setlist_delete(lineup_id):
     return jsonify(setlists.delete(db(), lineup_id, json_body()))
 
 
+# ==== Post-v1 #44: songs
+# Song counts, the artist song catalog, song pages and song merging (songs.py). Reads are served twice like Task 6's:
+# /api/ for the public (editor=False), /admin/api/ for editors. The writes are the editor's.
+import songs  # noqa: E402
+
+
+def _t44_artist_songs(artist_id, editor):
+    if not songs.artist_visible(db(), artist_id, editor=editor):
+        raise ApiError(404, "Not found")
+    return jsonify(songs.artist_songs(db(), artist_id))
+
+
+@app.get("/api/artists/<int:artist_id>/songs")
+@public_read
+def api_artist_songs(artist_id):
+    """The artist's songs [{"id", "title", "plays", "shows", "first", "last", "in_catalog"}], most played first."""
+    return _t44_artist_songs(artist_id, False)
+
+
+@app.get("/admin/api/artists/<int:artist_id>/songs")
+@editor_required
+def admin_artist_songs(artist_id):
+    """The same list; with ?q= the artist's songs matching q, [{"id", "title", "plays"}] (the merge picker)."""
+    q = text(request.args, "q", 200)
+    if q is None:
+        return _t44_artist_songs(artist_id, True)
+    if not songs.artist_visible(db(), artist_id, editor=True):
+        raise ApiError(404, "Not found")
+    return jsonify(songs.search_songs(db(), artist_id, q))
+
+
+@app.get("/api/songs/<int:song_id>")
+@public_read
+def api_song(song_id):
+    return _found(songs.song_detail(db(), song_id, editor=False))
+
+
+@app.get("/admin/api/songs/<int:song_id>")
+@editor_required
+def admin_song(song_id):
+    return _found(songs.song_detail(db(), song_id, editor=True))
+
+
+@app.post("/admin/api/artists/<int:artist_id>/catalog")
+@editor_required
+def song_catalog_add(artist_id):
+    """{"text"} (one title per line) -> {"added", "already"}."""
+    return jsonify(songs.set_catalog(db(), artist_id, songs.catalog_text(json_body())))
+
+
+@app.delete("/admin/api/songs/<int:song_id>/catalog")
+@editor_required
+def song_catalog_remove(song_id):
+    """-> {"id", "in_catalog": false, "deleted"}; a song with plays or an alias stays, any other goes."""
+    return jsonify(songs.remove_from_catalog(db(), song_id))
+
+
+@app.post("/admin/api/songs/merge")
+@editor_required
+def song_merge():
+    """{"keep", "drop"} -> {"keep", "moved"}; the same act's songs only (400)."""
+    keep, drop = _t15_pair()
+    return jsonify(songs.merge_songs(db(), keep, drop))
+
+
 init_db()
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20. Post-v1: #43.
+**Status:** Built: Task 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20. Post-v1: #43, #44.
 
 ## Commands
 
@@ -88,7 +88,7 @@ browse.py         the browse reads (Task 6): show_row (the Show row contract, fr
                   an upcoming show, and an artist, venue or city with no attended show, is None -> 404 "Not found".
                   Lists newest first (editors' upcoming shows first). City paths: /api/cities/<country>/<region>/<city>,
                   a missing country or region written "-" (/api/cities/FR/-/Lyon), matched case-insensitively
-stats.py          stats(con): totals, shows per year, top artists/venues/cities (attended only); GET /api/stats
+stats.py          stats(con): totals, shows per year, top artists/venues/cities/songs (attended only; top_songs is #44); GET /api/stats
 people.py         companions (editor-only): list_people, create_person, companions, set_companions, person_shows
 geocode.py        Nominatim lookup (1 req/s, UA, 10 s), locate_venue, set_coords, missing_coords (Task 16); its
                   front end is static/js/venues.js (#/admin/venues, the "Not on the map" card)
@@ -125,6 +125,14 @@ setlists.py       stored setlists (post-v1 #43): parse_setlist(text) (the paste 
                   delete, for_show(con, show_id, editor=) (what show_detail adds; source_label/url for editors only);
                   routes in app.py under "Post-v1 #43": POST /admin/api/lineup/<id>/setlist/preview, PUT and DELETE
                   /admin/api/lineup/<id>/setlist. 409 "Add a setlist after the show." on an upcoming show
+songs.py          song counts and catalog (post-v1 #44): artist_songs(con, artist_id), never_heard, song_detail(con, id,
+                  editor=), search_songs, parse_catalog, set_catalog (-> added/already), remove_from_catalog (a song with
+                  plays or an alias stays, any other goes), merge_songs (same act only, 400; entries and aliases move,
+                  the dropped title becomes an alias, shows' version bumped). A play is a setlist entry on an attended
+                  show; a song is visible when played or in_catalog (public: also its artist has an attended show, else
+                  404). Aliases are returned as norms. Routes in app.py under "Post-v1 #44": GET /api/artists/<id>/songs,
+                  /api/songs/<id> (and under /admin/api/; ?q= searches), POST /admin/api/artists/<id>/catalog,
+                  DELETE /admin/api/songs/<id>/catalog, POST /admin/api/songs/merge
 venueedit.py      venue editing (Task 20): view, update_venue (name/city/region/country; a rename keeps the old name,
                   coordinates kept), add_name, remove_name (409 for the current name, a name a ticket uses, or a name
                   another venue in the city has); routes in app.py under Task 20 at /admin/api/venues/<id>[/names]
@@ -146,6 +154,9 @@ static/js/        hash-routed ES modules, no build step: main.js (router, header
                   encore; editors get Add setlist / Edit (paste, Preview with new songs tagged, source, Save) and an
                   inline Delete. renderSets, groupEntries, setlistText, renderPreview, renderPanelBody,
                   renderSetlistsPanel
+  songs.js        #/song/<id> and, around the artist page (main.js wraps Task 8's showArtist), "Songs heard" and "Never
+                  heard" (#44); editors paste the catalog, merge a song ("Merge 'X' into 'Y'? 3 plays move.").
+                  heardLabel, renderHeard, renderNeverHeard, renderMergeConfirm, renderPlay, renderSong, showSong
   images.js       the Pictures show panel (order 10): groupImages, renderPictures, renderPicturesPanel
   merge.js        #/admin/merge: renderMergeConfirm, renderPick
   confirm.js      #/admin/confirm and the To confirm admin card (order 20): renderConfirmItem, renderConfirmPage,

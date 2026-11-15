@@ -20,6 +20,7 @@ export const cityHref = c =>
 
 const artistHref = a => `#/artist/${a.artist_id}`;
 const venueHref = v => `#/venue/${v.venue_id}`;
+const songHref = s => `#/song/${s.song_id}`;
 
 const renderTotal = (label, n) =>
   `<div class="stat"><span class="stat-n">${esc(n)}</span> <span class="stat-label">${esc(label)}</span></div>`;
@@ -38,13 +39,18 @@ function renderTopItems(items, href, label) {
 const renderTotals = t =>
   `<div class="stat-totals">${renderTotal("shows", t.shows)}${renderTotal("artists", t.artists)}${renderTotal("venues", t.venues)}${renderTotal("cities", t.cities)}</div>`;
 
+// "Most heard songs" (post-v1 #44): the songs with the most plays at shows the owner went to; nothing without any.
+export const renderTopSongs = items =>
+  items && items.length ? renderTop("Most heard songs", items, songHref, i => `${i.title} · ${i.artist}`) : "";
+
 export function renderStats(s) {
   return `<h1>Stats</h1>
 ${renderTotals(s.totals)}
 <section><h2>Shows per year</h2><ul class="bars">${renderBars(s.per_year)}</ul></section>
 ${renderTop("Top artists", s.top_artists, artistHref, a => a.name)}
 ${renderTop("Top venues", s.top_venues, venueHref, v => v.name)}
-${renderTop("Top cities", s.top_cities, cityHref, placeLabel)}`;
+${renderTop("Top cities", s.top_cities, cityHref, placeLabel)}
+${renderTopSongs(s.top_songs)}`;
 }
 
 export async function showStats(ctx) {
