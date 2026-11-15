@@ -141,6 +141,11 @@ route("admin/venue/:id/edit", renderEditVenue);
 route("venue/:id", ctx => showVenueWithEdit(showVenue, ctx)); // the venue page, plus "Edit venue" for editors under /admin
 
 
+// ==== Post-v1 #43: stored setlists
+import { renderSetlistsPanel } from "./setlists.js";
+registerShowPanel("Setlists", { order: 15, editorOnly: false, render: renderSetlistsPanel });
+
+
 // ---------------------------------------------------------------- the router (runs after every route is registered)
 const host = document.getElementById("app");
 const brand = document.getElementById("appName");
