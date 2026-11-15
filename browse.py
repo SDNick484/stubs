@@ -2,7 +2,8 @@
 every function takes a sqlite3.Connection, and app.py serves each one twice, at /api/ with editor=False and at
 /admin/api/ with editor=True.
 
-What the public gets (spec 6): attended shows only, and nothing editor-only. An upcoming show is None (a 404, the same
+What the public gets (spec 6): attended shows only, with each act's stored setlist but not its source, and nothing
+editor-only. An upcoming show is None (a 404, the same
 as an id that doesn't exist), and so is an artist, venue or city that only upcoming shows would reveal; a venue name
 used only on an upcoming show's ticket is left out too. Editors also get upcoming shows (in an `upcoming` list beside
 the attended `shows` on artist, venue and city pages; first in show lists) and, on a show, notes, rating, confidence
@@ -12,6 +13,7 @@ Lists are newest first: by sort_date, then id, descending. A city is (country, r
 or region matches a venue that has none, so the page for Lyon, France is /api/cities/FR/-/Lyon."""
 from collections import Counter
 
+import setlists
 from common import norm, venue_norm
 
 ROLES = ("headliner", "coheadliner", "opener", "performer")
@@ -69,7 +71,9 @@ def _sources(con, show_id) -> dict:
 
 def show_detail(con, show_id, *, editor) -> dict | None:
     """The show row plus tour, lineup, prev_id and next_id; for editors also notes, rating, confidence,
-    confidence_note, version, sources, and per lineup entry rating, confidence, confidence_note and sources. None when
+    confidence_note, version, sources, and per lineup entry rating, confidence, confidence_note and sources. Every
+    lineup entry has its stored `setlist` (setlists.for_show: the songs for everyone, the source for editors only) or
+    None. None when
     there is no such show, or it is upcoming and this is the public. Previous/next step by sort_date, then id, over
     the shows this reader may see (attended only for the public)."""
     row = con.execute(f"{SHOW_SELECT} WHERE s.id = ?", (show_id,)).fetchone()
@@ -78,11 +82,13 @@ def show_detail(con, show_id, *, editor) -> dict | None:
     d = show_row(con, row)
     d["tour"] = row["tour"]
     sources = _sources(con, show_id) if editor else {}
+    stored = setlists.for_show(con, show_id, editor=editor)
     d["lineup"] = []
     for e in con.execute("SELECT l.id, l.artist_id, a.name, l.role, l.position, l.rating, l.confidence, l.confidence_note "
                          "FROM lineup l JOIN artist a ON a.id = l.artist_id WHERE l.show_id = ? ORDER BY l.position, l.id",
                          (show_id,)):
-        entry = {"id": e["id"], "artist_id": e["artist_id"], "name": e["name"], "role": e["role"], "position": e["position"]}
+        entry = {"id": e["id"], "artist_id": e["artist_id"], "name": e["name"], "role": e["role"], "position": e["position"],
+                 "setlist": stored.get(e["id"])}
         if editor:
             entry.update(rating=e["rating"], confidence=e["confidence"], confidence_note=e["confidence_note"],
                          sources=sources.get(e["id"], []))

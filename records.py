@@ -1,4 +1,4 @@
-"""The write-side core (spec sections 5 and 7.2): resolve or create artists, venues and runs, and create shows,
+"""The write-side core (spec sections 5 and 7.2): resolve or create artists, venues, runs and songs, and create shows,
 lineup entries and sources. Every function takes a sqlite3.Connection and imports no route code, so imports, the
 editor and the API share one set of writers. Bad input raises common.ApiError."""
 import os
@@ -45,6 +45,53 @@ def get_or_create_artist(con, name) -> int:
         if found is not None:
             return found
         return con.execute("INSERT INTO artist (name, norm) VALUES (?, ?)", (name, norm(name))).lastrowid
+
+
+# ---------------------------------------------------------------- songs (schema v3)
+def resolve_song(con, artist_id, title) -> "int | None":
+    """This act's song by this title: `song.norm` first, then `song_alias.norm`, both within the artist (another
+    act's song of the same title is another song). None when unknown or blank."""
+    n = norm(title)
+    if not n:
+        return None
+    row = con.execute("SELECT id FROM song WHERE artist_id = ? AND norm = ?", (artist_id, n)).fetchone()
+    if row is None:
+        row = con.execute("SELECT song_id AS id FROM song_alias WHERE artist_id = ? AND norm = ?",
+                          (artist_id, n)).fetchone()
+    return row["id"] if row else None
+
+
+def get_or_create_song(con, artist_id, title) -> int:
+    """resolve_song, else a new song with this title (spaces collapsed) for the artist."""
+    title = _name(title, "Song title")
+    with transaction(con):
+        found = resolve_song(con, artist_id, title)
+        if found is not None:
+            return found
+        return con.execute("INSERT INTO song (artist_id, title, norm) VALUES (?, ?, ?)",
+                           (artist_id, title, norm(title))).lastrowid
+
+
+def drop_unused_songs(con, artist_ids) -> None:
+    """Delete these artists' songs that no setlist plays, that are not in the artist's catalog and that have no alias:
+    a typo fixed in a setlist leaves no song behind. Songs are never cascaded, so the writers that remove setlist
+    entries (a setlist saved or deleted, an act taken off a lineup, a show deleted, an artist merge) call this."""
+    con.executemany(
+        "DELETE FROM song WHERE artist_id = ? AND in_catalog = 0 "
+        "AND NOT EXISTS (SELECT 1 FROM setlist_entry e WHERE e.song_id = song.id) "
+        "AND NOT EXISTS (SELECT 1 FROM song_alias x WHERE x.song_id = song.id)", [(a,) for a in set(artist_ids)])
+
+
+def move_setlist_songs(con, lineup_id, old_artist_id, new_artist_id) -> None:
+    """A lineup entry now names another act (a lineup edit renamed it): its stored setlist's songs become that act's
+    songs, matched by title (made when the act has no such song), and the old act's songs nothing plays any more go.
+    Call inside the caller's transaction."""
+    rows = con.execute("SELECT e.id, s.title FROM setlist_entry e JOIN song s ON s.id = e.song_id "
+                       "WHERE e.lineup_id = ?", (lineup_id,)).fetchall()
+    for r in rows:
+        con.execute("UPDATE setlist_entry SET song_id = ? WHERE id = ?",
+                    (get_or_create_song(con, new_artist_id, r["title"]), r["id"]))
+    drop_unused_songs(con, [old_artist_id])
 
 
 # ---------------------------------------------------------------- venues and runs
@@ -130,13 +177,16 @@ def add_source(con, show_id, label, url=None, lineup_id=None) -> int:
 
 
 def delete_show(con, show_id) -> None:
-    """Delete a show (its lineup, sources, companions, images and setlist link cascade) and unlink its image
-    files from IMAGE_DIR. Files go after the rows, and only by base name inside IMAGE_DIR; one already gone is
-    fine. Inside a caller's larger transaction the files go before that transaction commits."""
+    """Delete a show (its lineup, sources, companions, images, setlist links and stored setlists cascade; songs only
+    those setlists played go too) and unlink its image files from IMAGE_DIR. Files go after the rows, and only by
+    base name inside IMAGE_DIR; one already gone is fine. Inside a caller's larger transaction the files go before
+    that transaction commits."""
     with transaction(con):
         files = [r["file"] for r in con.execute("SELECT file FROM image WHERE show_id = ?", (show_id,))]
+        acts = [r["artist_id"] for r in con.execute("SELECT artist_id FROM lineup WHERE show_id = ?", (show_id,))]
         if con.execute("DELETE FROM show WHERE id = ?", (show_id,)).rowcount == 0:
             raise ApiError(404, "Show not found.")
+        drop_unused_songs(con, acts)
     for name in files:
         try:
             os.unlink(os.path.join(settings.IMAGE_DIR, os.path.basename(name)))

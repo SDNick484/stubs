@@ -906,6 +906,34 @@ def admin_venue_remove_name(venue_id):
     return jsonify(venueedit.remove_name(db(), venue_id, json_body().get("name")))
 
 
+# ==== Post-v1 #43: stored setlists
+# The owner's own setlists, one per act on a show (setlists.py). Reads come with the show (browse.show_detail); these
+# are the editor's writes. Save and delete carry the show's version like the edit form, and answer with the new one.
+import setlists  # noqa: E402
+
+
+@app.post("/admin/api/lineup/<int:lineup_id>/setlist/preview")
+@editor_required
+def setlist_preview(lineup_id):
+    """{"text"} -> {"entries": [{"title", "set_name", "encore", "note", "segue", "song_id"}]}; song_id is null for a
+    song new to this act. Stores nothing."""
+    return jsonify(setlists.preview(db(), lineup_id, json_body()))
+
+
+@app.put("/admin/api/lineup/<int:lineup_id>/setlist")
+@editor_required
+def setlist_save(lineup_id):
+    """{"entries", "source_label", "source_url"?, "version"} -> {"version", "setlist"}. Replaces the act's setlist."""
+    return jsonify(setlists.save(db(), lineup_id, json_body()))
+
+
+@app.delete("/admin/api/lineup/<int:lineup_id>/setlist")
+@editor_required
+def setlist_delete(lineup_id):
+    """{"version"} -> {"version"}."""
+    return jsonify(setlists.delete(db(), lineup_id, json_body()))
+
+
 init_db()
 
 if __name__ == "__main__":

@@ -94,7 +94,7 @@ def test_editor_detail_has_sources_and_confidence(editor, con):
     assert head["sources"] == [] and head["confidence"] == "confirmed" and head["rating"] is None
     assert opener == {"id": lid, "artist_id": mk_artist(con, "Ninefold"), "name": "Ninefold", "role": "opener", "position": 2,
                       "rating": 3, "confidence": "likely", "confidence_note": "From a poster",
-                      "sources": [{"id": opener_src, "label": "Last.fm", "url": None}]}
+                      "sources": [{"id": opener_src, "label": "Last.fm", "url": None}], "setlist": None}
 
 
 def test_public_detail_has_no_editor_keys(client, con):
@@ -106,7 +106,7 @@ def test_public_detail_has_no_editor_keys(client, con):
     assert not {"notes", "rating", "confidence", "sources", "version"} & set(d)
     assert "confidence_note" not in d
     for entry in d["lineup"]:
-        assert set(entry) == {"id", "artist_id", "name", "role", "position"}
+        assert set(entry) == {"id", "artist_id", "name", "role", "position", "setlist"}  # setlist: #43
 
 
 def test_venue_detail_lists_former_names(client, con):

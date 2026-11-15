@@ -178,7 +178,8 @@ def update_show(con, show_id, fields: dict, version: int) -> int:
 
 
 def delete(con, show_id) -> None:
-    """records.delete_show: the lineup, sources, companions, images (and their files) and setlist link go too."""
+    """records.delete_show: the lineup, sources, companions, images (and their files), setlist links and stored
+    setlists go too."""
     records.delete_show(con, show_id)
 
 
@@ -209,7 +210,8 @@ def _write_lineup(con, show_id, entries):
         artists.add(artist)
         plan.append((eid, artist, role, position, rating, confidence, note))
     gone = [i for i in existing if i not in kept]
-    con.executemany("DELETE FROM lineup WHERE id = ?", [(i,) for i in gone])  # their sources cascade
+    con.executemany("DELETE FROM lineup WHERE id = ?", [(i,) for i in gone])  # their sources and setlists cascade
+    records.drop_unused_songs(con, [existing[i] for i in gone])
     # An entry renamed to another artist keeps its id and sources. Park those entries on a placeholder artist first
     # (checked only at commit), so two entries that swap names don't collide on UNIQUE(show_id, artist_id).
     moving = [p[0] for p in plan if p[0] is not None and existing[p[0]] != p[1]]
@@ -223,13 +225,16 @@ def _write_lineup(con, show_id, entries):
         else:
             con.execute("UPDATE lineup SET artist_id = ?, role = ?, position = ?, rating = ?, confidence = ?, "
                         "confidence_note = ? WHERE id = ?", (artist, role, position, rating, confidence, note, eid))
+    for eid in moving:  # a stored setlist's songs follow the entry to its new act
+        records.move_setlist_songs(con, eid, existing[eid], next(p[1] for p in plan if p[0] == eid))
 
 
 def set_lineup(con, show_id, entries: list, version: int) -> int:
     """Replace a show's lineup with `entries` ({"id"?, "name", "role", "confidence", "confidence_note", "rating"}) in
-    order. Entries with an id are updated (a new name moves the entry to that artist, keeping its sources); entries
-    left out are removed, with their sources; names without an id are resolved or created with
-    records.get_or_create_artist. One artist twice is 400. Returns the show's new version; stale -> 409 STALE."""
+    order. Entries with an id are updated (a new name moves the entry to that artist, keeping its sources and stored
+    setlist, whose songs become the new artist's); entries left out are removed, with their sources and setlists;
+    names without an id are resolved or created with records.get_or_create_artist. One artist twice is 400. Returns
+    the show's new version; stale -> 409 STALE."""
     with transaction(con):
         _check(con, show_id, version)
         _write_lineup(con, show_id, entries)
