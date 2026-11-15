@@ -146,6 +146,12 @@ import { renderSetlistsPanel } from "./setlists.js";
 registerShowPanel("Setlists", { order: 15, editorOnly: false, render: renderSetlistsPanel });
 
 
+// ==== Post-v1 #44
+import { showArtistWithSongs, showSong } from "./songs.js";
+route("artist/:id", ctx => showArtistWithSongs(showArtist, ctx)); // the artist page, plus its songs
+route("song/:id", showSong);
+
+
 // ---------------------------------------------------------------- the router (runs after every route is registered)
 const host = document.getElementById("app");
 const brand = document.getElementById("appName");

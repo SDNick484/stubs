@@ -400,3 +400,23 @@ section.setlists-act + section.setlists-act { margin-top: var(--s4); padding-top
 .setlists-form p { margin: 0; }
 .setlists-preview:empty { display: none; }
 .setlists-preview { padding: var(--s2) var(--s3); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); }
+
+
+/* ==== Post-v1 #44: songs */
+.artist-songs { margin: 0 0 var(--s4); }
+.song-list { margin: 0 0 var(--s2); padding-left: var(--s5); }
+ul.song-list { list-style: disc; }
+.song-list li { overflow-wrap: anywhere; padding: var(--s1) 0; }
+.song-remove { margin-left: var(--s2); padding: 0 var(--s3); }
+.song-catalog-form { display: grid; gap: var(--s2); margin: var(--s3) 0; min-width: 0; }
+.song-catalog-form label { display: grid; gap: var(--s1); color: var(--ink-2); font-size: var(--fs-sm); }
+.song-catalog-form textarea {
+  width: 100%; box-sizing: border-box; min-height: 8rem; padding: var(--s2) var(--s3); background: var(--raised);
+  border: 1px solid var(--line); border-radius: var(--r-card); color: var(--ink); font: inherit; resize: vertical;
+}
+.song-catalog-form p { margin: 0; }
+.song-play { flex-wrap: wrap; }
+.song-play-meta { flex: 1 0 100%; padding: 0 var(--s3) var(--s2); }
+.song-tools { display: flex; flex-wrap: wrap; gap: var(--s2); margin: var(--s4) 0 var(--s2); }
+.song-merge { display: grid; gap: var(--s2); margin-bottom: var(--s3); min-width: 0; }
+.song-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin: 0; }

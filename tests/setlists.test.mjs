@@ -33,7 +33,7 @@ test("sets are grouped with their headings, segues and notes", () => {
   assert.match(html, /<h4 class="setlists-set-name">Encore<\/h4>/);
   assert.match(html, /<h4 class="setlists-set-name">Encore 2<\/h4>/);
   assert.equal((html.match(/is-encore/g) || []).length, 2);
-  assert.match(html, /Lantern Light<\/span> <span class="setlists-segue"[^>]*>›<\/span>/);
+  assert.match(html, /Lantern Light<\/a> <span class="setlists-segue"[^>]*>›<\/span>/);
   assert.match(html, /<small class="setlists-note">cover; extended<\/small>/);
   assert.doesNotMatch(html, /setlists-new/); // only the preview marks new songs
 });
