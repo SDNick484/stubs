@@ -323,12 +323,31 @@ artist already has is 409 "Another artist has this MusicBrainz ID: merge them." 
 offers the merge with both preselected. A merge keeps the kept artist's ID, else takes the dropped one's. The public
 artist page shows "MusicBrainz" as a link to `https://musicbrainz.org/artist/<mbid>`; the note is editors only.
 
+### 7.14 MCP server (post-v1 #46)
+
+`mcp_server.py` (FastMCP) gives Claude the history through tools that call Stubs over HTTP (`STUBS_URL`, default
+`http://127.0.0.1:<PORT>`) with one key, never the database; `mcp_http.py` serves them as the `stubs-mcp` service over
+Streamable HTTP behind Cloudflare Access (Matinee's pattern, the shared `mcp_remote.py`; `docs/mcp-setup.md`). Read
+tools use the editor's view (upcoming shows, notes, sources and confidence; never companions): `find_artist`,
+`times_seen`, `search_shows`, `get_show`, `get_stats`, `upcoming_shows`, `to_confirm`, `songs_heard`, `song_count`,
+`never_heard`. A name matching several artists or venues is answered with the candidates and their ids. The write
+level `STUBS_MCP_WRITES` is `none` (the default: read tools, `STUBS_READ_KEY`; the service refuses to start with
+`STUBS_API_KEY` in its environment) or `import` (adds `import_shows`, which posts a batch of Proposals to
+`POST /admin/api/imports` and returns its counts and the review path `/admin#/admin/import/<id>`, and `list_imports`;
+`STUBS_API_KEY`). There is no apply, edit or delete tool: everything Claude finds lands in the review screen, and the
+owner approves it there. `import_shows`' description teaches the Proposal shape: one show per night, festival days as
+separate shows with only the acts actually watched, `confidence: "likely"` with a note when unsure, a source for every
+fact.
+
 ## 8. Settings
 
 `.env.example` and the installer's `add_setting` list carry every setting: `PORT` (8773), `DATA_DIR`,
 `CF_TEAM_DOMAIN`, `CF_AUD`, `ADMIN_EMAILS`, `LAN_EDIT`, `LAN_HOSTS`, `PUBLIC_VIEW`, `PUBLIC_POSTERS` (0),
 `STUBS_API_KEY`, `STUBS_READ_KEY`, `SETLISTFM_API_KEY`, `GEOCODER_URL`
 (`https://nominatim.openstreetmap.org/search`), `MUSICBRAINZ_URL` (`https://musicbrainz.org/ws/2`), `TILE_URL` (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`).
+The MCP service (7.14) adds `STUBS_URL` (empty: `http://127.0.0.1:<PORT>`), `STUBS_MCP_WRITES` (`none`),
+`MCP_HTTP_BIND` (`127.0.0.1`), `MCP_HTTP_PORT` (8774), `MCP_HTTP_PATH` (`/stubs/mcp`), `MCP_PUBLIC_HOSTS`,
+`CF_ACCESS_AUD` and `MCP_ALLOWED_EMAILS`, exported by its own init script.
 
 ## 9. Testing
 
@@ -358,7 +377,9 @@ classic-script Leaflet build is loaded alongside the ES module graph; the image 
 
 ## 12. Departures from Matinee's conventions
 
-1. **No MCP server in v1** (Matinee rule 6). It is the third item after v1; the import API is its seam.
+1. **No MCP server in v1** (Matinee rule 6). It came after v1 (7.14, post-v1 #46), built on the import API, so
+   Matinee's rule 6 now applies to Stubs too: new data an assistant would want means a new or extended tool in
+   `mcp_server.py`, a test in `tests/test_mcp_server.py`, and an update to `docs/mcp-setup.md`.
 2. **A strict CSP**, taken from Gift Exchange: `default-src 'self'; script-src 'self'; style-src 'self';
    img-src 'self' data: <tile host>; connect-src 'self'; object-src 'none'; base-uri 'none';
    frame-ancestors 'none'`. Matinee has none for scripts. This brings Gift Exchange's escaping rules (`esc()` on every
