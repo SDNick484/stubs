@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20. Post-v1: #43, #44, #45, #46.
+**Status:** Built: Task 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20. Post-v1: #43, #44, #45, #46, #47.
 
 ## Commands
 
@@ -15,7 +15,7 @@ python -m pytest -q                                 # report the skip count and 
 node --test tests/*.test.mjs                        # DOM-free helpers in static/js/
 for f in static/js/*.js; do node --check "$f"; done
 ruff check
-shellcheck -s sh installer/setup-head.sh installer/build.sh ops/stubs-backup
+shellcheck -s sh installer/setup-head.sh installer/build.sh ops/stubs-backup ops/stubs-watch
 sh installer/build.sh && sh -n dist/setup-stubs.sh  # writes dist/setup-stubs.sh (git-ignored)
 python3 app.py                                      # dev server on 127.0.0.1:8773
 ```
@@ -79,9 +79,10 @@ app.py            Flask object, access (access_identity, lan_host, cross_site, i
                   /manifest.json, /robots.txt, /healthz, /api/session, /admin/api/session. Section markers
                   `# ==== Task N: <name>` for each later task.
 settings.py       environment config, read once at import after /etc/conf.d/stubs and ./.env (keys not already set)
-db.py             SCHEMA (v4, spec section 5), SCHEMA_VERSION, connect(), transaction(), migrate() (MIGRATIONS: _to_v1,
+db.py             SCHEMA (v5, spec section 5), SCHEMA_VERSION, connect(), transaction(), migrate() (MIGRATIONS: _to_v1,
                   _to_v2 moves v1's per-show setlist_link onto lineup entries, _to_v3 adds _V3_SCHEMA's stored-setlist
-                  tables, _to_v4 adds artist.mbid / mb_disambiguation), db() (per request, in g), close_db(), init_db()
+                  tables, _to_v4 adds artist.mbid / mb_disambiguation, _to_v5 adds _V5_SCHEMA's concert watch tables),
+                  db() (per request, in g), close_db(), init_db()
 common.py         ApiError, json_body, text, norm, venue_norm, parse_date, period_end, today
 csvimport.py      parse_csv(bytes) -> Proposals (UTF-8/BOM or cp1252, any CRLF), split_billing, parse_city, US_STATES,
                   CA_PROVINCES (spec 7.3 step 1); tests/fixtures/concerts.csv is its invented sample, reused by Task 4
@@ -148,6 +149,22 @@ songs.py          song counts and catalog (post-v1 #44): artist_songs(con, artis
                   404). Aliases are returned as norms. Routes in app.py under "Post-v1 #44": GET /api/artists/<id>/songs,
                   /api/songs/<id> (and under /admin/api/; ?q= searches), POST /admin/api/artists/<id>/catalog,
                   DELETE /admin/api/songs/<id>/catalog, POST /admin/api/songs/merge
+watch.py          concert watch (post-v1 #47, editor-only): suggest_from_history(con, min_times), suggest_from_lastfm,
+                  add_watch (resolve_artist, MBID first, else a new never-seen artist), watch_artist, update_watch,
+                  remove_watch (a watch-only artist goes too), watched, artist_watch, add_area/list_areas/remove_area,
+                  distance_km/near (haversine), locate (a known venue, else geocode.lookup venue then city), have
+                  (imports.match "have": "You have tickets", never pushed), sightings, add_sighting (an upcoming show,
+                  headliner, source labelled with the source), dismiss, file_email (the email source), run(con, now,
+                  limit=40) (oldest last_checked first, BUDGET 40 s, a lock row `watch_run` in meta: 409 while one is
+                  going; expired and vanished sightings deleted; then notify). Routes in app.py under "Post-v1 #47":
+                  /admin/api/watch[/<artist_id>|/suggestions|/lastfm|/artists/<id>|/areas[/<id>]|/sightings[/<id>/add|
+                  /dismiss]|/run]
+ticketmaster.py   Discovery API client (#47): events(name, mbid, today) (UA, 10 s, 5 req/s; music, upcoming, not
+                  cancelled; an attraction is the artist by MusicBrainz id when both have one, else exact norm; 502
+                  "Lookup failed", never the key)
+lastfm.py         Last.fm client (#47): top_artists(user) (user.gettopartists by API key, no login; 1 req/s; 502)
+notify.py         concert watch pushes (#47): payload(items, fmt) (ntfy: text + Title/Click headers; json: {"title",
+                  "message", "items"}), push, notify_new(con, items) (sets notified_at only after a successful push)
 venueedit.py      venue editing (Task 20): view, update_venue (name/city/region/country; a rename keeps the old name,
                   coordinates kept), add_name, remove_name (409 for the current name, a name a ticket uses, or a name
                   another venue in the city has); routes in app.py under Task 20 at /admin/api/venues/<id>[/names]
@@ -202,6 +219,10 @@ static/js/        hash-routed ES modules, no build step: main.js (router, header
   imports.js      #/admin/import, #/admin/import/<id> and the Imports waiting admin card (order 30): renderImportRow,
                   renderGroups
   edit.js         #/admin/show/new, #/admin/show/<id>/edit, the Edit show panel (order 0), "+ Show" header link
+  watch.js        concert watch (#47): the "New near you (N)" admin card (order 12; Add as upcoming / Dismiss),
+                  #/admin/watch, the "Watch" header link and, around the artist page (main.js wraps #44's wrapper),
+                  Watch / Watching. seenLabel, renderSighting, renderWatchedRow, renderLastfm, renderSources,
+                  renderArtistWatch, parseNumber, showArtistWithWatch
 static/vendor/    pinned third-party files (README.md lists them): leaflet/ 1.9.4 (BSD-2-Clause),
                   markercluster/ 1.5.3 (MIT); exempt from the static/js/ rules
 tests/            conftest.py + one test file per module; test_privacy.py (public walk), test_hygiene.py,
@@ -210,7 +231,9 @@ tests/            conftest.py + one test file per module; test_privacy.py (publi
                   client) and test_mcp_http.py (stubs-mcp, Access, the mcp_remote.py sha256), the MCP job's
 installer/        setup-head.sh (the installer's text), build.sh (head + base64 tarball of every top-level *.py,
                   README.md, .env.example, ops/ and static/ -> dist/setup-stubs.sh)
-ops/              stubs-backup (nightly `sqlite3 .backup` + images tarball, 0600 in /var/backups/stubs, 14 days)
+ops/              stubs-backup (nightly `sqlite3 .backup` + images tarball, 0600 in /var/backups/stubs, 14 days);
+                  stubs-watch (#47, hourly: busybox wget POST 127.0.0.1:$PORT/admin/api/watch/run with STUBS_API_KEY
+                  from /etc/conf.d/stubs; nothing without the key, or without TICKETMASTER_API_KEY and WATCH_NOTIFY_URL)
 .env.example      every setting, with its default
 ```
 
@@ -254,7 +277,13 @@ list and the init script's `export` line (`tests/test_installer_static.py` check
   position)` (cascades from `setlist`). Songs are never cascaded: writers that drop setlist entries call
   `records.drop_unused_songs`. Schema v4 (#45): `artist.mbid TEXT` (NULL allowed, unique where set via the
   partial index `artist_mbid`; lowercase UUID) and `artist.mb_disambiguation TEXT` (MusicBrainz's note, shown to editors
-  only). Timestamps are SQLite `CURRENT_TIMESTAMP` text.
+  only). Schema v5 (#47, concert watch, editor-only): `watch(artist_id PRIMARY KEY, origin, anywhere, muted,
+  last_checked, created_at)` (origin history/manual/lastfm; never cascaded, merge_artists moves it: both watched keeps
+  the kept row, `anywhere` either), `watch_area(id, name, lat, lon, radius_km, created_at)`, `sighting(id, artist_id,
+  source, source_event_id, date, venue, city, region, country, lat, lon, url, on_sale, note, status, first_seen,
+  last_seen, notified_at)` `UNIQUE(source, source_event_id)`, cascading from `artist` (source ticketmaster/bandsintown/
+  email, status new/dismissed/added; deleted the day after its date and when its source stops returning it). A run
+  holds the `meta` row `watch_run`. Timestamps are SQLite `CURRENT_TIMESTAMP` text.
 - Access (`app.py`): `access_identity()` is `"api-key"` (`STUBS_API_KEY` as `X-API-Key` or `Authorization: Bearer`),
   `"read-key"` (`STUBS_READ_KEY`: editor reads, no writes), the email of a Cloudflare Access JWT
   (`Cf-Access-Jwt-Assertion`, RS256, audience `CF_AUD`, issuer `https://<CF_TEAM_DOMAIN>`) that is in
@@ -274,7 +303,7 @@ list and the init script's `export` line (`tests/test_installer_static.py` check
 - Frontend: a route renders into `ctx.view` (`ctx = {view, params, query, session, alive, rerender}`); check
   `ctx.alive()` after each await. Show panels and admin cards plug in through `registry.js` with an `order`
   (spec'd orders: Edit 0, Pictures 10, Setlists 15, Setlist 20, With 40, From a link 50; cards Did you go? 10, Coming up 15,
-  To confirm 20, Imports waiting 30, Not on the map 40, Artists without a MusicBrainz link 45). An admin card's `render(el)` may return `false` to hide
+  To confirm 20, Imports waiting 30, Not on the map 40, Artists without a MusicBrainz link 45, New near you 12). An admin card's `render(el)` may return `false` to hide
   itself; with nothing left `#/admin` says "Nothing needs you." `core.js` touches no DOM at import so `node --test`
   can load it. `document.title` is set only in `main.js`, from `session.app_name`. Deletes and confirmations use an
   inline "Delete? Yes / No", never `window.confirm`.
@@ -287,6 +316,7 @@ list and the init script's `export` line (`tests/test_installer_static.py` check
   (`STUBS_URL`, `STUBS_MCP_WRITES`, `MCP_HTTP_*`, `MCP_PUBLIC_HOSTS`, `CF_ACCESS_AUD`, `MCP_ALLOWED_EMAILS`) live in
   `/etc/conf.d/stubs` and are exported by its own init script, not gunicorn's; it starts, joins the runlevel and gets
   a `HEALTH_CHECKS` line only once configured and answering.
+  Hourly `/etc/periodic/hourly/stubs-watch` (#47) goes through the app, never opening the database as root.
 
 ## Departures from Matinee's conventions (spec section 12)
 
@@ -300,3 +330,5 @@ list and the init script's `export` line (`tests/test_installer_static.py` check
 4. **Vendored third-party JavaScript** in `static/vendor/` (Leaflet, marker cluster), exempt from the ES-module rules
    and from `node --check`'s glob.
 5. **The server fetches arbitrary URLs** (spec 7.12), behind the SSRF guard. Matinee only calls fixed APIs.
+6. **The app runs a scheduled job and sends outbound notifications** (spec 7.15): hourly `ops/stubs-watch` asks the
+   app to check watched artists, and new concerts are pushed to `WATCH_NOTIFY_URL`.

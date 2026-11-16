@@ -3,7 +3,7 @@ Connection and never imports app; watch.py decides what to keep.
 
 An event is the artist's only when one of its attractions is the artist: by MusicBrainz id when the artist has one and
 the attraction lists one (so a same-name band with another id is not matched), else by the exact common.norm of the
-attraction's name. Never a fuzzy match. Only what a sighting stores is returned (spec 7.14): the event id, date, venue,
+attraction's name. Never a fuzzy match. Only what a sighting stores is returned (spec 7.15): the event id, date, venue,
 city, region, country, coordinates, link and public on-sale time. The key goes in the query string (the API's only
 way), so it is never logged: failures raise ApiError(502, "Lookup failed") with no detail."""
 import json
