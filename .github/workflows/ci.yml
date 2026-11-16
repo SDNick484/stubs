@@ -73,8 +73,8 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - run: python -m pip install -r requirements-dev.txt
-      # The browser tests run in the UI smoke job.
-      - run: python -m pytest -q -rs --ignore-glob='tests/test_*_ui.py'
+      # The browser tests run in the UI smoke job, the MCP server's in the MCP job.
+      - run: python -m pytest -q -rs --ignore-glob='tests/test_*_ui.py' --ignore-glob='tests/test_mcp_*.py'
 
   alpine:
     # Production parity: Alpine's own py3-* packages, musl and BusyBox (the installer build runs on its sh and tar).
@@ -87,7 +87,32 @@ jobs:
       - uses: actions/checkout@v7
       # The checkout is owned by another user inside the container; git refuses it without this.
       - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - run: python3 -m pytest -q -rs --ignore-glob='tests/test_*_ui.py'
+      - run: python3 -m pytest -q -rs --ignore-glob='tests/test_*_ui.py' --ignore-glob='tests/test_mcp_*.py'
       - run: node --test tests/*.test.mjs
       - run: for f in static/js/*.js; do node --check "$f"; done
       - run: sh installer/build.sh && sh -n dist/setup-stubs.sh
+
+  mcp:
+    # The MCP server's tests (tests/test_mcp_*.py, post-v1 #46) with requirements-mcp.txt, the stubs-mcp venv's
+    # packages, which the app's own jobs don't install (they leave these files out). httpx is for Starlette's
+    # TestClient. STUBS_MCP_REQUIRED=1 turns a missing package into a failure, and the summary is checked so no test
+    # can pass by skipping.
+    name: MCP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            requirements-mcp.txt
+      - run: python -m pip install -r requirements-dev.txt -r requirements-mcp.txt "httpx==0.28.1"
+      - name: pytest tests/test_mcp_*.py (fails on any skip)
+        env:
+          STUBS_MCP_REQUIRED: "1"
+        run: |
+          set -o pipefail
+          python -m pytest -q -rs tests/test_mcp_*.py | tee mcp.log
+          if grep -Eq "[0-9]+ skipped" mcp.log; then echo "MCP tests skipped: see above"; exit 1; fi
