@@ -18,6 +18,7 @@ INITD=/etc/init.d/stubs
 LOG=/var/log/stubs.log
 SVC_USER=stubs
 BACKUP_JOB=/etc/periodic/daily/stubs-backup
+WATCH_JOB=/etc/periodic/hourly/stubs-watch
 OPS_CONF="${OPS_CONF:-/etc/conf.d/ops}"
 PORT="${STUBS_PORT:-8773}"
 # The MCP service (post-v1 #46): its own user (no database access, no home), venv and init script.
@@ -39,13 +40,13 @@ command -v apk >/dev/null || { echo "This installer is for Alpine (apk)."; exit 
 if [ -n "$UNINSTALL" ]; then
   rc-service "$NAME" stop >/dev/null 2>&1 || true
   rc-update del "$NAME" default >/dev/null 2>&1 || true
-  rm -f "$INITD" "$BACKUP_JOB"
+  rm -f "$INITD" "$BACKUP_JOB" "$WATCH_JOB"
   rm -rf "$APP_DIR"
   rc-service stubs-mcp stop >/dev/null 2>&1 || true
   rc-update del stubs-mcp default >/dev/null 2>&1 || true
   rm -f "$MCP_INITD"
   rm -rf /opt/stubs-mcp
-  echo "Removed the app, the service and the backup job. Kept $DATA_DIR, $CONF and $BACKUP_DIR."
+  echo "Removed the app, the service, the backup job and the concert watch job. Kept $DATA_DIR, $CONF and $BACKUP_DIR."
   exit 0
 fi
 
@@ -219,6 +220,10 @@ apk add --no-cache py3-pip >/dev/null 2>&1 && python3 -m venv "$MCP_VENV" && "$M
 echo "==> Installing the nightly backup"
 mkdir -p /etc/periodic/daily
 install -m 755 "$APP_DIR/ops/stubs-backup" "$BACKUP_JOB"
+echo "==> Installing the hourly concert watch"
+# It asks the running app (with STUBS_API_KEY) to check watched artists; it does nothing until a key is set.
+mkdir -p /etc/periodic/hourly
+install -m 755 "$APP_DIR/ops/stubs-watch" "$WATCH_JOB"
 rc-update add crond default >/dev/null 2>&1 || true
 rc-service crond start >/dev/null 2>&1 || true
 
