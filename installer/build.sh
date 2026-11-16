@@ -17,6 +17,8 @@ for f in README.md .env.example; do
   [ -f "$f" ] || { echo "$f is missing."; exit 1; }
   cp "$f" "$STAGE/stubs/"
 done
+[ -f requirements-mcp.txt ] || { echo "requirements-mcp.txt is missing."; exit 1; }
+cp requirements-mcp.txt "$STAGE/stubs/"  # the stubs-mcp venv's pins (post-v1 #46)
 [ -f ops/stubs-backup ] || { echo "ops/stubs-backup is missing."; exit 1; }
 cp -r ops static "$STAGE/stubs/"
 

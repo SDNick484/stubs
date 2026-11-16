@@ -18,6 +18,18 @@ in any key the environment does not already have (as Matinee). An empty value me
   MUSICBRAINZ_URL    MusicBrainz web service root for artist links (default https://musicbrainz.org/ws/2)
   TILE_URL           map tile URL template (default https://tile.openstreetmap.org/{z}/{x}/{y}.png); its host is
                      allowed in the Content-Security-Policy's img-src
+
+The MCP service (stubs-mcp: mcp_http.py, post-v1 #46, docs/mcp-setup.md) reads these from its own environment, which
+its init script exports; the app only lists them here so every setting has one home:
+  STUBS_URL          where stubs-mcp reaches the app (empty: http://127.0.0.1:<PORT>)
+  STUBS_MCP_WRITES   none (default): read tools only, with STUBS_READ_KEY; import: also import_shows and
+                     list_imports, with STUBS_API_KEY (a batch waits in the review screen; nothing applies it)
+  MCP_HTTP_BIND      address stubs-mcp listens on (default 127.0.0.1)
+  MCP_HTTP_PORT      its port (default 8774)
+  MCP_HTTP_PATH      its endpoint path (default /stubs/mcp)
+  MCP_PUBLIC_HOSTS   the MCP tunnel hostname(s), e.g. mcp.example.com
+  CF_ACCESS_AUD      AUD tag of the Access application on the MCP hostname (not CF_AUD)
+  MCP_ALLOWED_EMAILS Access emails that may use the tools; empty means anyone Access lets in
 """
 import os
 import re
@@ -91,3 +103,13 @@ SETLISTFM_API_KEY = (os.environ.get("SETLISTFM_API_KEY") or "").strip()
 GEOCODER_URL = (os.environ.get("GEOCODER_URL") or "").strip() or "https://nominatim.openstreetmap.org/search"
 MUSICBRAINZ_URL = ((os.environ.get("MUSICBRAINZ_URL") or "").strip() or "https://musicbrainz.org/ws/2").rstrip("/")
 TILE_URL = (os.environ.get("TILE_URL") or "").strip() or "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+
+# ---------------------------------------------------------------- the MCP service's (post-v1 #46; read by mcp_http.py)
+STUBS_URL = ((os.environ.get("STUBS_URL") or "").strip() or f"http://127.0.0.1:{PORT}").rstrip("/")
+STUBS_MCP_WRITES = (os.environ.get("STUBS_MCP_WRITES") or "").strip().lower() or "none"
+MCP_HTTP_BIND = (os.environ.get("MCP_HTTP_BIND") or "").strip() or "127.0.0.1"
+MCP_HTTP_PORT = int((os.environ.get("MCP_HTTP_PORT") or "").strip() or "8774")
+MCP_HTTP_PATH = (os.environ.get("MCP_HTTP_PATH") or "").strip() or "/stubs/mcp"
+MCP_PUBLIC_HOSTS = (os.environ.get("MCP_PUBLIC_HOSTS") or "").strip()
+CF_ACCESS_AUD = (os.environ.get("CF_ACCESS_AUD") or "").strip()
+MCP_ALLOWED_EMAILS = (os.environ.get("MCP_ALLOWED_EMAILS") or "").strip()

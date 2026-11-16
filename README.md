@@ -10,6 +10,8 @@ Flask + SQLite, a phone-first single page, a map with a year strip, and an evide
 - Sources and confidence on every show and lineup entry, with a list of facts still to confirm.
 - Upcoming shows, and a "Did you go?" list once they pass.
 - Posters, photos and ticket stubs; a live setlist.fm panel.
+- A Claude connector (MCP): ask "every time I've seen X" or "how many times have I heard Y" from any Claude app, and
+  let Claude send shows it finds in emails to the import review screen.
 
 Friends with the link see the attended shows; upcoming shows, notes, sources, companions, ratings and imports are for
 editors only.
@@ -39,9 +41,20 @@ service and keeps the data, config and backups.
 Every setting, with its default, is in `.env.example` (and in `/etc/conf.d/stubs` on the host): `PORT`, `DATA_DIR`,
 `CF_TEAM_DOMAIN`, `CF_AUD`, `ADMIN_EMAILS`, `LAN_EDIT`, `LAN_HOSTS`, `PUBLIC_VIEW`, `PUBLIC_POSTERS`,
 `STUBS_API_KEY`, `STUBS_READ_KEY`, `SETLISTFM_API_KEY`, `GEOCODER_URL`, `MUSICBRAINZ_URL`, `TILE_URL`.
+The MCP service's: `STUBS_URL`, `STUBS_MCP_WRITES`, `MCP_HTTP_BIND`, `MCP_HTTP_PORT`, `MCP_HTTP_PATH`,
+`MCP_PUBLIC_HOSTS`, `CF_ACCESS_AUD`, `MCP_ALLOWED_EMAILS` (`docs/mcp-setup.md`).
 
 Scripts use `STUBS_API_KEY` (writes) or `STUBS_READ_KEY` (reads) as `X-API-Key: <key>` or
 `Authorization: Bearer <key>`.
+
+## Claude connector (MCP)
+
+`mcp_server.py` gives Claude read tools over the history (`times_seen`, `search_shows`, `get_show`, `song_count`,
+`never_heard` and more) and, with `STUBS_MCP_WRITES=import`, `import_shows`, which sends shows to the import review
+screen; nothing is applied until you approve the batch there, and companions never leave the app. The installer runs
+it as the `stubs-mcp` service on `127.0.0.1:8774` (its own venv from `requirements-mcp.txt`), started once
+`MCP_PUBLIC_HOSTS`, `CF_ACCESS_AUD` and `STUBS_READ_KEY` are set; put it behind a tunnel route such as
+`https://mcp.example.com/stubs/mcp` with Cloudflare Access. Setup, settings and rollback: `docs/mcp-setup.md`.
 
 ## Develop
 
@@ -55,3 +68,4 @@ node --test tests/*.test.mjs
 
 The full check list is in `CLAUDE.md`. The browser smoke tests (`tests/test_*_ui.py`) need
 `pip install playwright && python -m playwright install chromium`.
+The MCP tests (`tests/test_mcp_*.py`) need `.venv/bin/pip install -r requirements-mcp.txt httpx`.

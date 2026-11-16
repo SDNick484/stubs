@@ -6,7 +6,7 @@ what proves it; imported from a CSV, edited by hand, browsed on a map with a yea
 delivered as one PR; the plan's task block is the contract for names, signatures and messages; where it and the spec
 disagree, the spec wins and the PR says so).
 
-**Status:** Built: Task 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20. Post-v1: #43, #44, #45.
+**Status:** Built: Task 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20. Post-v1: #43, #44, #45, #46.
 
 ## Commands
 
@@ -24,6 +24,9 @@ Run the whole gate before every commit. CI (`.github/workflows/ci.yml`) runs the
 Python 3.10–3.13 and Alpine. The UI smoke job runs `tests/test_*_ui.py` with Playwright and Chromium at 412 px and
 fails on any skip (`STUBS_UI_REQUIRED=1`); the other jobs leave those files out. Locally they run when Playwright and
 its Chromium are installed (`pip install playwright && python -m playwright install chromium`) and skip otherwise.
+The MCP job runs `tests/test_mcp_*.py` with `requirements-mcp.txt` and httpx and fails on any skip
+(`STUBS_MCP_REQUIRED=1`); the other jobs leave those files out. Locally they run once
+`pip install -r requirements-mcp.txt httpx` is done, and skip otherwise.
 `tests/test_hygiene.py` walks `git ls-files`, so new files must be added to git before it sees them.
 
 ## Rules that must keep holding
@@ -32,6 +35,12 @@ its Chromium are installed (`pip install playwright && python -m playwright inst
   py3-gunicorn py3-jwt py3-cryptography`, plus `sqlite` for the backup. Everything else is the standard library
   (`urllib.request`, `html.parser`, `csv`, `json`, `ipaddress`, `socket`, `unicodedata`): no requests, no Pillow, no
   BeautifulSoup. Dev only: pytest, `ruff==0.16.9`, `shellcheck-py==0.11.0.1`, playwright (UI smoke job).
+- The one exception (as in Matinee): the separate `stubs-mcp` venv, `/opt/stubs-mcp/venv`, with
+  `requirements-mcp.txt` (mcp, uvicorn, pyjwt[crypto]; Python 3.10+). `mcp_server.py`, `mcp_http.py` and
+  `mcp_remote.py` run there: they never import `app` or a module that imports Flask (`common`, `db`, ...), reach Stubs
+  only over HTTP with one key (`STUBS_READ_KEY` at `STUBS_MCP_WRITES=none`, `STUBS_API_KEY` at `import`), and have no
+  tool that applies, edits or deletes. No tool output carries companions. `mcp_remote.py` is a verbatim copy of
+  mcp-server-shared's `remote.py` (`tests/test_mcp_http.py` checks its sha256): change it upstream, never here.
 - No frontend framework, bundler or npm step. Native ES modules in `static/js/`, with `static/js/package.json` =
   `{"type": "module"}`. Third-party JS only in `static/vendor/`, pinned, with version and licence in
   `static/vendor/README.md`.
@@ -142,6 +151,19 @@ songs.py          song counts and catalog (post-v1 #44): artist_songs(con, artis
 venueedit.py      venue editing (Task 20): view, update_venue (name/city/region/country; a rename keeps the old name,
                   coordinates kept), add_name, remove_name (409 for the current name, a name a ticket uses, or a name
                   another venue in the city has); routes in app.py under Task 20 at /admin/api/venues/<id>[/names]
+mcp_server.py     the MCP server (post-v1 #46, docs/mcp-setup.md): StubsClient (JSON over HTTP to STUBS_URL with one
+                  key), write_level/service_key/startup_problem/client_for (from an env mapping), the read tools
+                  find_artist, times_seen, search_shows, get_show, get_stats, upcoming_shows, to_confirm, songs_heard,
+                  song_count, never_heard, and at STUBS_MCP_WRITES=import import_shows (POST /admin/api/imports; returns
+                  counts and review_link /admin#/admin/import/<id>) and list_imports; build_server(writes=), TOOL_HINTS,
+                  instructions_for; `python mcp_server.py` is stdio. Copies common.norm/venue_norm (_norm, _venue_norm)
+mcp_http.py       the stubs-mcp service: Streamable HTTP on MCP_HTTP_BIND:MCP_HTTP_PORT (127.0.0.1:8774) at
+                  MCP_HTTP_PATH (/stubs/mcp) behind Cloudflare Access (CF_TEAM_DOMAIN, CF_ACCESS_AUD,
+                  MCP_ALLOWED_EMAILS, MCP_PUBLIC_HOSTS); /healthz follows Stubs' own; main() refuses unsafe settings
+mcp_remote.py     verbatim copy of SDNick484/mcp-server-shared src/mcp_shared/remote.py (header: source commit and
+                  upstream-sha256); never edited here
+requirements-mcp.txt  the stubs-mcp venv's pins (the app's own dependencies stay apk-only)
+docs/mcp-setup.md the tools, keys and write levels, the stubs-mcp settings, tunnel and Access setup, rollback
 static/           index.html (the shell; / and /admin fill in __APP_NAME__), style.css (markers `/* ==== Task N */`),
                   manifest.json (GET /manifest.json sets name and short_name), icon.svg, robots.txt
 static/js/        hash-routed ES modules, no build step: main.js (router, header, document.title; route(),
@@ -184,7 +206,8 @@ static/vendor/    pinned third-party files (README.md lists them): leaflet/ 1.9.
                   markercluster/ 1.5.3 (MIT); exempt from the static/js/ rules
 tests/            conftest.py + one test file per module; test_privacy.py (public walk), test_hygiene.py,
                   test_frontend.py (shell, CSP and escaping scans), test_installer_static.py, test_shell_ui.py
-                  (Playwright), frontend.test.mjs (node --test)
+                  (Playwright), frontend.test.mjs (node --test); test_mcp_server.py (the tools, through the Flask test
+                  client) and test_mcp_http.py (stubs-mcp, Access, the mcp_remote.py sha256), the MCP job's
 installer/        setup-head.sh (the installer's text), build.sh (head + base64 tarball of every top-level *.py,
                   README.md, .env.example, ops/ and static/ -> dist/setup-stubs.sh)
 ops/              stubs-backup (nightly `sqlite3 .backup` + images tarball, 0600 in /var/backups/stubs, 14 days)
@@ -259,10 +282,18 @@ list and the init script's `export` line (`tests/test_installer_static.py` check
   replaced on each run, `/var/lib/stubs` (with `images/`) and `/etc/conf.d/stubs` (root only, 0600) kept;
   `STUBS_PORT` picks the port on a first install. `add_setting` only adds missing keys, single-quoted. Nightly
   `/etc/periodic/daily/stubs-backup`, 14 days, optional `BACKUP_TARGET` copy and health check via `/etc/conf.d/ops`.
+  Post-v1 #46: service `stubs-mcp` (`/etc/init.d/stubs-mcp`, user `stubs-mcp` with no home and no access to
+  `/var/lib/stubs`, venv `/opt/stubs-mcp/venv` from `requirements-mcp.txt`; a pip failure skips only it). Its settings
+  (`STUBS_URL`, `STUBS_MCP_WRITES`, `MCP_HTTP_*`, `MCP_PUBLIC_HOSTS`, `CF_ACCESS_AUD`, `MCP_ALLOWED_EMAILS`) live in
+  `/etc/conf.d/stubs` and are exported by its own init script, not gunicorn's; it starts, joins the runlevel and gets
+  a `HEALTH_CHECKS` line only once configured and answering.
 
 ## Departures from Matinee's conventions (spec section 12)
 
-1. **No MCP server in v1** (Matinee rule 6). It is the third item after v1; the import API is its seam.
+1. **No MCP server in v1** (Matinee rule 6). It came after v1 (post-v1 #46: `mcp_server.py`, `mcp_http.py`,
+   `docs/mcp-setup.md`), built on the import API, so Matinee's rule 6 now applies here too: new data an assistant
+   would want means a new or extended tool in `mcp_server.py`, a test in `tests/test_mcp_server.py`, and an update to
+   `docs/mcp-setup.md`.
 2. **A strict CSP**, taken from Gift Exchange (above). This brings Gift Exchange's escaping rules (`esc()` on every
    interpolation, no inline handlers or `style=` in markup) and its scan test.
 3. **Referrer policy `strict-origin-when-cross-origin`** instead of `same-origin`, for OSM tiles.
