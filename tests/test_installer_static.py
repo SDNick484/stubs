@@ -49,7 +49,9 @@ def test_every_setting_has_env_example_and_add_setting():
     keys = _settings_keys()
     assert {"PORT", "DATA_DIR", "CF_TEAM_DOMAIN", "CF_AUD", "ADMIN_EMAILS", "LAN_EDIT", "LAN_HOSTS", "PUBLIC_VIEW",
             "PUBLIC_POSTERS", "STUBS_API_KEY", "STUBS_READ_KEY", "SETLISTFM_API_KEY", "GEOCODER_URL", "MUSICBRAINZ_URL",
-            "TILE_URL"} | MCP_KEYS == keys
+            "TILE_URL",
+            # post-v1 #47: concert watch
+            "TICKETMASTER_API_KEY", "LASTFM_API_KEY", "LASTFM_USER", "WATCH_NOTIFY_URL", "WATCH_NOTIFY_FORMAT"} | MCP_KEYS == keys
     env_example, head = _read(".env.example"), _read("installer/setup-head.sh")
     exports = re.search(r"^export (PORT .*)$", head, re.M)
     assert exports, "the init script exports the settings on one `export PORT ...` line"
@@ -238,3 +240,43 @@ def test_mcp_setup_doc():
                    "rc-service stubs-mcp restart", "vim /etc/conf.d/stubs", "concerts.example.com", "import_shows"):
         assert needle in text, needle
     assert "systemctl" not in text
+
+
+def test_concert_watch_job_is_installed_hourly_and_removed_on_uninstall():
+    """Post-v1 #47: ops/stubs-watch runs hourly, through the app (never opening the database as root)."""
+    head = _read("installer/setup-head.sh")
+    assert "WATCH_JOB=/etc/periodic/hourly/stubs-watch" in head
+    assert 'install -m 755 "$APP_DIR/ops/stubs-watch" "$WATCH_JOB"' in head
+    assert 'rm -f "$INITD" "$BACKUP_JOB" "$WATCH_JOB"' in head
+    job = _read("ops/stubs-watch")
+    assert "/admin/api/watch/run" in job and "127.0.0.1:$PORT" in job and "X-API-Key: $STUBS_API_KEY" in job
+    assert "sqlite3" not in job and "stubs.db" not in job
+    assert "stubs/ops/stubs-watch" in _payload_names(_build())
+
+
+def _run_watch_job(tmp_path, conf_body):
+    conf, log, bindir = tmp_path / "stubs", tmp_path / "watch.log", tmp_path / "bin"
+    conf.write_text(conf_body)
+    bindir.mkdir(exist_ok=True)
+    calls = tmp_path / "wget-calls"
+    (bindir / "wget").write_text(f'#!/bin/sh\necho "$@" >> "{calls}"\nprintf %s \'{{"checked": 2, "new": 1, "notified": 1}}\'\n')
+    (bindir / "wget").chmod(0o755)
+    env = {**os.environ, "CONF": str(conf), "LOG": str(log), "PATH": f"{bindir}:{os.environ['PATH']}"}
+    subprocess.run(["sh", os.path.join(ROOT, "ops", "stubs-watch")], env=env, check=True)
+    return (calls.read_text() if calls.exists() else ""), (log.read_text() if log.exists() else "")
+
+
+def test_concert_watch_job_does_nothing_without_the_key_or_a_source(tmp_path):
+    for body in ("PORT='8773'\nSTUBS_API_KEY=''\nTICKETMASTER_API_KEY='tm-key'\n",
+                 "PORT='8773'\nSTUBS_API_KEY='write-key'\nTICKETMASTER_API_KEY=''\nWATCH_NOTIFY_URL=''\n"):
+        assert _run_watch_job(tmp_path, body) == ("", "")
+
+
+def test_concert_watch_job_posts_to_the_app_and_logs_only_counts(tmp_path):
+    calls, log = _run_watch_job(tmp_path, "PORT='8774'\nSTUBS_API_KEY='write-key-xyz'\nTICKETMASTER_API_KEY='tm-key'\n"
+                                          "WATCH_NOTIFY_URL='https://ntfy.example.com/stubs-topic-q9'\n")
+    assert "http://127.0.0.1:8774/admin/api/watch/run" in calls and "--post-data" in calls
+    assert "X-API-Key: write-key-xyz" in calls
+    assert '"checked": 2' in log
+    for secret in ("write-key-xyz", "tm-key", "stubs-topic-q9"):
+        assert secret not in log

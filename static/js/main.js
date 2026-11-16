@@ -157,6 +157,14 @@ route("admin/artists", renderArtistsPage);
 registerAdminCard("Artists without a MusicBrainz link", { order: 45, render: renderUnlinkedCard });
 
 
+// ==== Post-v1 #47
+import { renderNewNearYouCard, renderWatch, showArtistWithWatch } from "./watch.js";
+route("admin/watch", renderWatch);
+route("artist/:id", ctx => showArtistWithWatch(c => showArtistWithSongs(showArtist, c), ctx)); // plus Watch / Watching under /admin
+headerLink("#/admin/watch", "Watch", { editorOnly: true, order: 84 });
+registerAdminCard("New near you", { order: 12, render: renderNewNearYouCard });
+
+
 // ---------------------------------------------------------------- the router (runs after every route is registered)
 const host = document.getElementById("app");
 const brand = document.getElementById("appName");

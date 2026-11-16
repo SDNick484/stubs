@@ -436,3 +436,30 @@ ul.song-list { list-style: disc; }
 .mb-suggestion:empty { display: none; }
 .mb-suggestion { display: grid; gap: var(--s2); }
 .mb-msg { margin: 0; min-height: 1em; }
+
+/* ==== Post-v1 #47: concert watch */
+.watch-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.watch-sighting, .watch-row, .watch-suggestion, .watch-area {
+  background: var(--raised); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s3);
+  display: grid; gap: var(--s2); min-width: 0;
+}
+.watch-suggestion, .watch-area { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.watch-what { display: grid; gap: 2px; }
+.watch-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.watch-actions, .watch-switches, .watch-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.watch-confirm[hidden] { display: none; }
+.watch-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
+.watch-row p, .watch-sighting p { margin: 0; }
+.watch-msg:empty { display: none; }
+.watch-switches label { display: inline-flex; align-items: center; gap: var(--s1); min-height: var(--tap); }
+.watch-mini { margin: 0; padding-left: var(--s5); color: var(--ink-2); font-size: var(--fs-sm); }
+.watch-section { display: grid; gap: var(--s2); }
+.watch-form { display: grid; gap: var(--s2); min-width: 0; }
+.watch-form label { display: grid; gap: var(--s1); color: var(--ink-2); font-size: var(--fs-sm); }
+.watch-form .watch-check { display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--tap); }
+.watch-form input[type=text] {
+  width: 100%; min-height: var(--tap); padding: 0 var(--s3); background: var(--raised); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--r-card);
+}
+.watch-form p { margin: 0; }
+.artist-watch { display: grid; gap: var(--s2); margin: 0 0 var(--s3); }

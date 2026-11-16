@@ -30,8 +30,8 @@ def merge_artists(con, keep_id, drop_id) -> None:
     is (role, position, confidence; a missing rating is filled from the dropped entry), the dropped entry's sources
     move to it, so do its setlist link and its stored setlist if the kept entry has none (else they cascade away),
     and the dropped entry goes. Songs fold in (_merge_songs). The kept artist keeps its MusicBrainz id, else takes the
-    dropped one's (with its note). Aliases move, the dropped name becomes an alias, the
-    artist is deleted."""
+    dropped one's (with its note). A watch row and sightings move (_merge_watch). Aliases move, the dropped name
+    becomes an alias, the artist is deleted."""
     _ids(keep_id, drop_id, "artist")
     with transaction(con):
         keep = _get(con, "artist", keep_id, "artist")
@@ -56,12 +56,27 @@ def merge_artists(con, keep_id, drop_id) -> None:
         con.execute("INSERT INTO artist_alias (norm, artist_id) VALUES (?, ?) "
                     "ON CONFLICT(norm) DO UPDATE SET artist_id = excluded.artist_id", (drop["norm"], keep_id))
         con.execute("DELETE FROM artist_alias WHERE norm = ?", (keep["norm"],))
+        _merge_watch(con, keep_id, drop_id)
         con.execute("DELETE FROM artist WHERE id = ?", (drop_id,))
         # the MusicBrainz link: the kept artist's, else the dropped one's (taken after the delete frees its unique id)
         if keep["mbid"] is None and drop["mbid"] is not None:
             con.execute("UPDATE artist SET mbid = ?, mb_disambiguation = ? WHERE id = ?",
                         (drop["mbid"], drop["mb_disambiguation"], keep_id))
         con.execute("UPDATE artist SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (keep_id,))
+
+
+def _merge_watch(con, keep_id, drop_id):
+    """Concert watch (post-v1 #47): the dropped artist's sightings move to the kept one, and so does its watch row
+    when the kept artist isn't watched; when both are, the kept row stays (origin, muted, last_checked) and
+    `anywhere` is either one's."""
+    dropped = con.execute("SELECT anywhere FROM watch WHERE artist_id = ?", (drop_id,)).fetchone()
+    if dropped is not None:
+        if con.execute("SELECT 1 FROM watch WHERE artist_id = ?", (keep_id,)).fetchone():
+            con.execute("UPDATE watch SET anywhere = MAX(anywhere, ?) WHERE artist_id = ?", (dropped["anywhere"], keep_id))
+            con.execute("DELETE FROM watch WHERE artist_id = ?", (drop_id,))
+        else:
+            con.execute("UPDATE watch SET artist_id = ? WHERE artist_id = ?", (keep_id, drop_id))
+    con.execute("UPDATE sighting SET artist_id = ? WHERE artist_id = ?", (keep_id, drop_id))
 
 
 def _move_setlist(con, from_entry, to_entry):

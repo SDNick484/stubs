@@ -1,4 +1,4 @@
-"""The SQLite schema (spec section 5, schema v4), connections, transactions and migrate(), plus the per-request
+"""The SQLite schema (spec section 5, schema v5), connections, transactions and migrate(), plus the per-request
 connection db() and init_db().
 
 Connections run in autocommit mode (isolation_level=None): a single statement commits on its own, and anything that
@@ -17,7 +17,7 @@ import settings
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = "4"
+SCHEMA_VERSION = "5"
 
 # Schema v3's tables (stored setlists), all new: what _to_v3 creates in an older database. SCHEMA ends with them, so a
 # new database gets them from _to_v1. If a later version changes one of these tables, SCHEMA gets its own copy and
@@ -57,8 +57,52 @@ CREATE TABLE IF NOT EXISTS setlist_entry (
 CREATE INDEX IF NOT EXISTS setlist_entry_song ON setlist_entry(song_id)
 """
 
-# The current schema (v4), which a new database gets in one step (_to_v1); _to_v2, _to_v3 and _to_v4 then find nothing
-# to do.
+# Schema v5's tables (concert watch, post-v1 #47), all new: what _to_v5 creates in an older database. SCHEMA ends with
+# them, so a new database gets them from _to_v1; like _V3_SCHEMA, this text stays as it is if a later version changes
+# one of them. watch: the artists the editor watches (one row per artist; never cascaded, merge_artists moves it).
+# watch_area: where "near" is. sighting: an upcoming event a source reported for a watched artist (someone else's
+# data: deleted the day after its date, or when its source stops returning it).
+_V5_SCHEMA = """
+CREATE TABLE IF NOT EXISTS watch (
+  artist_id INTEGER PRIMARY KEY REFERENCES artist(id),
+  origin TEXT NOT NULL CHECK (origin IN ('history','manual','lastfm')),
+  anywhere INTEGER NOT NULL DEFAULT 0 CHECK (anywhere IN (0, 1)),
+  muted INTEGER NOT NULL DEFAULT 0 CHECK (muted IN (0, 1)),
+  last_checked TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS watch_checked ON watch(muted, last_checked);
+CREATE TABLE IF NOT EXISTS watch_area (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL CHECK (name <> ''),
+  lat REAL NOT NULL CHECK (lat BETWEEN -90 AND 90),
+  lon REAL NOT NULL CHECK (lon BETWEEN -180 AND 180),
+  radius_km REAL NOT NULL CHECK (radius_km > 0),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS sighting (
+  id INTEGER PRIMARY KEY,
+  artist_id INTEGER NOT NULL REFERENCES artist(id) ON DELETE CASCADE,
+  source TEXT NOT NULL CHECK (source IN ('ticketmaster','bandsintown','email')),
+  source_event_id TEXT NOT NULL CHECK (source_event_id <> ''),
+  date TEXT NOT NULL,
+  venue TEXT NOT NULL CHECK (venue <> ''),
+  city TEXT NOT NULL CHECK (city <> ''),
+  region TEXT,
+  country TEXT,
+  lat REAL CHECK (lat IS NULL OR lat BETWEEN -90 AND 90),
+  lon REAL CHECK (lon IS NULL OR lon BETWEEN -180 AND 180),
+  url TEXT,
+  on_sale TEXT,
+  note TEXT,
+  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','dismissed','added')),
+  first_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  notified_at TEXT,
+  UNIQUE (source, source_event_id));
+CREATE INDEX IF NOT EXISTS sighting_artist ON sighting(artist_id);
+CREATE INDEX IF NOT EXISTS sighting_date ON sighting(date)
+"""
+
+# The current schema (v5), which a new database gets in one step (_to_v1); _to_v2 to _to_v5 then find nothing to do.
 # Statements are separated by ";" and contain none themselves (no triggers): see _statements().
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
@@ -180,7 +224,7 @@ CREATE TABLE IF NOT EXISTS import_row (
   include INTEGER NOT NULL DEFAULT 0 CHECK (include IN (0, 1)));
 CREATE INDEX IF NOT EXISTS import_row_batch ON import_row(batch_id, row_no);
 CREATE INDEX IF NOT EXISTS import_row_match ON import_row(match_show_id);
-""" + _V3_SCHEMA
+""" + _V3_SCHEMA + ";" + _V5_SCHEMA
 
 
 def _statements(script):
@@ -290,7 +334,14 @@ def _to_v4(con):
     con.execute("CREATE UNIQUE INDEX IF NOT EXISTS artist_mbid ON artist(mbid) WHERE mbid IS NOT NULL")
 
 
-MIGRATIONS = {1: _to_v1, 2: _to_v2, 3: _to_v3, 4: _to_v4}  # version -> the step that brings version-1 up to it
+def _to_v5(con):
+    """Concert watch (post-v1 #47): watch, watch_area and sighting, all new and empty. Nothing else changes; every
+    statement is CREATE ... IF NOT EXISTS, so a database that already has them (a new one) is left alone."""
+    for stmt in _statements(_V5_SCHEMA):
+        con.execute(stmt)
+
+
+MIGRATIONS = {1: _to_v1, 2: _to_v2, 3: _to_v3, 4: _to_v4, 5: _to_v5}  # version -> the step that brings version-1 up to it
 
 
 def migrate(con) -> None:

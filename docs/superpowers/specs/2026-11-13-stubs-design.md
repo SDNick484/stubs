@@ -44,8 +44,11 @@ Non-goals for v1, in the order they come next:
    heard"), entered by paste from band and fan-club sites or typed; plus an artist song catalog.
 2. MusicBrainz links on artists (stable IDs, better merging).
 3. An MCP server whose first tool wraps the import API, then read tools ("every time I've seen X").
+4. Concert watch (#47, section 7.15): upcoming concerts by bands the owner likes and has no tickets for yet, near him
+   or anywhere, on the editor home and pushed as a notification.
 
-Not planned: ticket prices or spending; the app logging into Gmail or Last.fm itself; Matinee's Ask feature;
+Not planned: ticket prices or spending; the app logging into Gmail or Last.fm itself (reading a Last.fm user's
+public top artists with an API key, no login, for concert watch suggestions, is allowed); Matinee's Ask feature;
 site-specific scrapers (the generic URL reader comes first).
 
 Anti-goals (a failure even if it works):
@@ -99,8 +102,9 @@ an editor/public split).
 ## 5. Data model
 
 All dates are ISO strings; timestamps are `created_at`/`updated_at` text as in Matinee. Names are matched through a
-normalized form `norm()` (section 7.2). Schema v4 (v1 had one `setlist_link` per show, see below; v3 added the stored
-setlists, the last four tables; v4 added `artist.mbid` and `artist.mb_disambiguation`):
+normalized form `norm()` (section 7.2). Schema v5 (v1 had one `setlist_link` per show, see below; v3 added the stored
+setlists, the four song and setlist tables; v4 added `artist.mbid` and `artist.mb_disambiguation`; v5 added concert
+watch's `watch`, `watch_area` and `sighting`, the last three):
 
 - `meta(k, v)`: `schema_version`.
 - `artist(id, name, norm, created_at, updated_at, mbid, mb_disambiguation)`, `UNIQUE(norm)`. `mbid` is the artist's
@@ -156,6 +160,16 @@ setlists, the last four tables; v4 added `artist.mbid` and `artist.mb_disambigua
   `ON DELETE CASCADE` from `setlist`: `set_name` free text or NULL ("Set 2", "Acoustic"), `encore` 0/1, `note` free
   text ("with a guest", "tease", "first time"), `segue` 0/1 (it ran straight into the next song). A set is a run of
   entries with the same `set_name` and `encore`.
+- `watch(artist_id PRIMARY KEY, origin, anywhere, muted, last_checked, created_at)`: an artist the owner watches
+  (section 7.15). `origin` ∈ `history`, `manual`, `lastfm`; `anywhere` 0/1 (concerts outside the watch areas count
+  too); `muted` 0/1 (not checked); `last_checked` NULL or a timestamp. A band he has never seen is an `artist` with no
+  lineup. Never cascaded; an artist merge moves it (both watched: the kept row stays, `anywhere` is either one's).
+- `watch_area(id, name, lat, lon, radius_km, created_at)`: where "near" is ("Home", 100 km), entered by the editor.
+- `sighting(id, artist_id, source, source_event_id, date, venue, city, region, country, lat, lon, url, on_sale, note,
+  status, first_seen, last_seen, notified_at)`, `UNIQUE(source, source_event_id)`, `ON DELETE CASCADE` from `artist`:
+  an upcoming concert a source reported. `source` ∈ `ticketmaster`, `bandsintown`, `email`; `status` ∈ `new`,
+  `dismissed`, `added`. Someone else's data, not the owner's history: deleted the day after its date, and when its
+  source stops returning it.
 
 Counts and "times I've seen X" use attended shows only. An artist's count is the number of attended shows with that
 artist in the lineup, in any role.
@@ -175,7 +189,9 @@ stored setlists (without their source), artist, venue, year and city pages, stat
 panel.
 
 Editor-only: upcoming shows (and their effect on any page), notes, sources, confidence and the to-confirm list,
-companions, ratings, posters and stubs (posters become public when `PUBLIC_POSTERS=1`), imports, "Did you go?".
+companions, ratings, posters and stubs (posters become public when `PUBLIC_POSTERS=1`), imports, "Did you go?",
+and all of concert watch: who is watched (artists he has never seen included, which appear in no public list, count or
+stat), the watch areas and the sightings.
 
 `tests/test_privacy.py` walks every `/api/` rule in `app.url_map` with seeded editor-only data (an upcoming show, a
 note, a companion, a source, a likely flag, a rating, a poster) and asserts none of it appears.
@@ -339,6 +355,32 @@ owner approves it there. `import_shows`' description teaches the Proposal shape:
 separate shows with only the acts actually watched, `confidence: "likely"` with a note when unsure, a source for every
 fact.
 
+### 7.15 Concert watch (post-v1 #47)
+
+Editors only. Nothing is watched automatically: `#/admin/watch` suggests artists from his attended shows (by times
+seen, then most recent; "Watch all seen 2+ times" is still a click) and, when `LASTFM_API_KEY` and `LASTFM_USER` are
+set, from that user's public Last.fm top artists (credited and linked to Last.fm); an artist can also be added by name
+(resolved through MusicBrainz id, name and aliases, else made as a never-seen artist) or from its artist page
+(Watch / Watching). Watch areas are a name, a point and a radius.
+
+A check (`POST /admin/api/watch/run`, hourly from `ops/stubs-watch` with the write key, or "Check now") asks the
+Ticketmaster Discovery API (when `TICKETMASTER_API_KEY` is set) about the 40 unmuted watched artists checked longest
+ago, within 40 seconds: music events from today on, not cancelled, whose attraction is the artist (by MusicBrainz id
+when both sides have one, else the exact `norm` of the name; never fuzzy). An event is kept when it lies within a watch
+area's radius (haversine; a venue with no coordinates is placed by a venue already in Stubs, else Nominatim for the
+venue, then the city) or the artist is marked "anywhere". Past and vanished sightings are deleted. A second check while
+one runs is 409 (a lock row). Claude files concerts it reads in the owner's mail (the app never reads mail) through
+`POST /admin/api/watch/sightings` (`source: "email"`, up to 25), checked and deduplicated the same way; Bandsintown is
+left out (its API is for artists and the partners it approves, not personal projects).
+
+A sighting that the import rule (7.3 step 2) would call "have" against a show already in Stubs is shown as "You have
+tickets" and never pushed. The admin card "New near you (N)" lists the new ones with Add as upcoming (an upcoming show,
+the act as headliner, the venue found or made, the link as a source labelled with the source's name) and Dismiss. New
+sightings are pushed once per check, one message listing them ("Marigold Static · Mar 14, 2027 · Old Mill Theatre,
+Portland" and the link), to `WATCH_NOTIFY_URL` as `ntfy` (plain text with `Title` and `Click` headers) or `json`
+(`{"title", "message", "items"}`); `notified_at` is set only after a successful push, so nothing repeats and a failed
+push is retried. The keys and the notification URL are secrets: never logged, never in a response.
+
 ## 8. Settings
 
 `.env.example` and the installer's `add_setting` list carry every setting: `PORT` (8773), `DATA_DIR`,
@@ -348,6 +390,9 @@ fact.
 The MCP service (7.14) adds `STUBS_URL` (empty: `http://127.0.0.1:<PORT>`), `STUBS_MCP_WRITES` (`none`),
 `MCP_HTTP_BIND` (`127.0.0.1`), `MCP_HTTP_PORT` (8774), `MCP_HTTP_PATH` (`/stubs/mcp`), `MCP_PUBLIC_HOSTS`,
 `CF_ACCESS_AUD` and `MCP_ALLOWED_EMAILS`, exported by its own init script.
+
+Concert watch (#47): `TICKETMASTER_API_KEY`, `LASTFM_API_KEY`, `LASTFM_USER`, `WATCH_NOTIFY_URL` (a secret; empty means
+no push), `WATCH_NOTIFY_FORMAT` (`ntfy` or `json`, default `ntfy`).
 
 ## 9. Testing
 
@@ -388,3 +433,6 @@ classic-script Leaflet build is loaded alongside the ES module graph; the image 
 4. **Vendored third-party JavaScript** in `static/vendor/` (Leaflet, marker cluster), exempt from the ES-module
    rules and from `node --check`'s glob.
 5. **The server fetches arbitrary URLs** (7.12), behind the SSRF guard. Matinee only calls fixed APIs.
+6. **The app runs a scheduled job and sends outbound notifications** (7.15): `ops/stubs-watch`, hourly from
+   `/etc/periodic/hourly`, asks the running app to check watched artists (so the database stays the service user's),
+   and the app pushes new concerts to `WATCH_NOTIFY_URL`. Matinee only answers requests.

@@ -18,6 +18,13 @@ in any key the environment does not already have (as Matinee). An empty value me
   MUSICBRAINZ_URL    MusicBrainz web service root for artist links (default https://musicbrainz.org/ws/2)
   TILE_URL           map tile URL template (default https://tile.openstreetmap.org/{z}/{x}/{y}.png); its host is
                      allowed in the Content-Security-Policy's img-src
+  TICKETMASTER_API_KEY  Ticketmaster Discovery API key for concert watch (#47); empty turns that source off
+  LASTFM_API_KEY     Last.fm API key, with LASTFM_USER: suggest artists to watch from that user's public top artists
+  LASTFM_USER        the Last.fm user name whose top artists are suggested
+  WATCH_NOTIFY_URL   where concert watch pushes new sightings (an ntfy topic URL or a webhook); empty means no push.
+                     A secret, like a key: never logged, never in a response
+  WATCH_NOTIFY_FORMAT  ntfy (default: a plain-text body with Title and Click headers) or json ({"title", "message",
+                     "items"})
 
 The MCP service (stubs-mcp: mcp_http.py, post-v1 #46, docs/mcp-setup.md) reads these from its own environment, which
 its init script exports; the app only lists them here so every setting has one home:
@@ -113,3 +120,10 @@ MCP_HTTP_PATH = (os.environ.get("MCP_HTTP_PATH") or "").strip() or "/stubs/mcp"
 MCP_PUBLIC_HOSTS = (os.environ.get("MCP_PUBLIC_HOSTS") or "").strip()
 CF_ACCESS_AUD = (os.environ.get("CF_ACCESS_AUD") or "").strip()
 MCP_ALLOWED_EMAILS = (os.environ.get("MCP_ALLOWED_EMAILS") or "").strip()
+
+# Concert watch (post-v1 #47)
+TICKETMASTER_API_KEY = (os.environ.get("TICKETMASTER_API_KEY") or "").strip()
+LASTFM_API_KEY = (os.environ.get("LASTFM_API_KEY") or "").strip()
+LASTFM_USER = (os.environ.get("LASTFM_USER") or "").strip()
+WATCH_NOTIFY_URL = (os.environ.get("WATCH_NOTIFY_URL") or "").strip()
+WATCH_NOTIFY_FORMAT = (os.environ.get("WATCH_NOTIFY_FORMAT") or "").strip().lower() or "ntfy"

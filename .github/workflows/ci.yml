@@ -28,7 +28,7 @@ jobs:
           node-version: "22"
       - run: python -m pip install "ruff==0.16.9" "shellcheck-py==0.11.0.1"
       - run: ruff check
-      - run: shellcheck -s sh installer/setup-head.sh installer/build.sh ops/stubs-backup
+      - run: shellcheck -s sh installer/setup-head.sh installer/build.sh ops/stubs-backup ops/stubs-watch
       - name: node --check static/js/*.js
         run: for f in static/js/*.js; do node --check "$f"; done
       - name: node --test tests/*.test.mjs

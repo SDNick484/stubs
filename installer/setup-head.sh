@@ -18,6 +18,7 @@ INITD=/etc/init.d/stubs
 LOG=/var/log/stubs.log
 SVC_USER=stubs
 BACKUP_JOB=/etc/periodic/daily/stubs-backup
+WATCH_JOB=/etc/periodic/hourly/stubs-watch
 OPS_CONF="${OPS_CONF:-/etc/conf.d/ops}"
 PORT="${STUBS_PORT:-8773}"
 # The MCP service (post-v1 #46): its own user (no database access, no home), venv and init script.
@@ -39,13 +40,13 @@ command -v apk >/dev/null || { echo "This installer is for Alpine (apk)."; exit 
 if [ -n "$UNINSTALL" ]; then
   rc-service "$NAME" stop >/dev/null 2>&1 || true
   rc-update del "$NAME" default >/dev/null 2>&1 || true
-  rm -f "$INITD" "$BACKUP_JOB"
+  rm -f "$INITD" "$BACKUP_JOB" "$WATCH_JOB"
   rm -rf "$APP_DIR"
   rc-service stubs-mcp stop >/dev/null 2>&1 || true
   rc-update del stubs-mcp default >/dev/null 2>&1 || true
   rm -f "$MCP_INITD"
   rm -rf /opt/stubs-mcp
-  echo "Removed the app, the service and the backup job. Kept $DATA_DIR, $CONF and $BACKUP_DIR."
+  echo "Removed the app, the service, the backup job and the concert watch job. Kept $DATA_DIR, $CONF and $BACKUP_DIR."
   exit 0
 fi
 
@@ -121,6 +122,11 @@ add_setting "$CONF" MCP_HTTP_PATH /stubs/mcp "URL path of the MCP endpoint (the 
 add_setting "$CONF" MCP_PUBLIC_HOSTS "" "Public hostname of the MCP tunnel route, e.g. mcp.example.com (stubs-mcp needs it)"
 add_setting "$CONF" CF_ACCESS_AUD "" "AUD tag of the Access application on the MCP hostname, not CF_AUD (stubs-mcp needs it)"
 add_setting "$CONF" MCP_ALLOWED_EMAILS "" "Only these Access emails may use the MCP tools (comma separated); empty = anyone Access lets in"
+add_setting "$CONF" TICKETMASTER_API_KEY "" "Ticketmaster Discovery API key for concert watch; empty = that source off"
+add_setting "$CONF" LASTFM_API_KEY "" "Last.fm API key: suggest artists to watch from LASTFM_USER's top artists"
+add_setting "$CONF" LASTFM_USER "" "Last.fm user whose public top artists are suggested"
+add_setting "$CONF" WATCH_NOTIFY_URL "" "Where new concerts are pushed (ntfy topic URL or webhook); empty = no push. A secret"
+add_setting "$CONF" WATCH_NOTIFY_FORMAT ntfy "ntfy (plain text, Title and Click headers) or json"
 # Holds API keys, so root only: OpenRC runs as root and exports what the service needs.
 chmod 600 "$CONF"; chown root:root "$CONF"
 
@@ -156,7 +162,7 @@ description="Stubs concert history (Flask + gunicorn, loopback only)"
 : ${PORT:=8773}
 : ${DATA_DIR:=/var/lib/stubs}
 export HOME=/var/lib/stubs  # newer gunicorn keeps a small control socket under $HOME
-export PORT DATA_DIR CF_TEAM_DOMAIN CF_AUD ADMIN_EMAILS LAN_EDIT LAN_HOSTS PUBLIC_VIEW PUBLIC_POSTERS STUBS_API_KEY STUBS_READ_KEY SETLISTFM_API_KEY GEOCODER_URL MUSICBRAINZ_URL TILE_URL
+export PORT DATA_DIR CF_TEAM_DOMAIN CF_AUD ADMIN_EMAILS LAN_EDIT LAN_HOSTS PUBLIC_VIEW PUBLIC_POSTERS STUBS_API_KEY STUBS_READ_KEY SETLISTFM_API_KEY GEOCODER_URL MUSICBRAINZ_URL TILE_URL TICKETMASTER_API_KEY LASTFM_API_KEY LASTFM_USER WATCH_NOTIFY_URL WATCH_NOTIFY_FORMAT
 supervisor="supervise-daemon"
 respawn_delay=5
 respawn_max=10
@@ -214,6 +220,10 @@ apk add --no-cache py3-pip >/dev/null 2>&1 && python3 -m venv "$MCP_VENV" && "$M
 echo "==> Installing the nightly backup"
 mkdir -p /etc/periodic/daily
 install -m 755 "$APP_DIR/ops/stubs-backup" "$BACKUP_JOB"
+echo "==> Installing the hourly concert watch"
+# It asks the running app (with STUBS_API_KEY) to check watched artists; it does nothing until a key is set.
+mkdir -p /etc/periodic/hourly
+install -m 755 "$APP_DIR/ops/stubs-watch" "$WATCH_JOB"
 rc-update add crond default >/dev/null 2>&1 || true
 rc-service crond start >/dev/null 2>&1 || true
 

@@ -1,0 +1,29 @@
+#!/bin/sh
+# Hourly concert watch for Stubs (installed to /etc/periodic/hourly by setup-stubs.sh): asks the running app to check
+# the watched artists it checked longest ago, POST http://127.0.0.1:$PORT/admin/api/watch/run with the write key.
+# Going through the app keeps the database the stubs user's: this never opens it as root.
+# Does nothing when STUBS_API_KEY is unset, or when there is nothing to do: no Ticketmaster key (the only source it
+# asks) and no WATCH_NOTIFY_URL (to push concerts filed from email).
+# The counts it gets back go to $LOG; the key and the notification URL never do.
+# CONF and LOG may be overridden for a test run.
+set -u
+umask 077
+CONF=${CONF:-/etc/conf.d/stubs}
+LOG=${LOG:-/var/log/stubs-watch.log}
+log() { echo "$(date '+%F %T') stubs-watch: $*" >> "$LOG" 2>/dev/null || true; }
+
+[ -r "$CONF" ] || exit 0
+PORT='' STUBS_API_KEY='' TICKETMASTER_API_KEY='' WATCH_NOTIFY_URL=''
+# shellcheck disable=SC1090  # the installer's config: KEY='value' lines, as OpenRC sources it
+. "$CONF"
+PORT=${PORT:-8773}
+[ -n "$STUBS_API_KEY" ] || exit 0
+[ -n "$TICKETMASTER_API_KEY" ] || [ -n "$WATCH_NOTIFY_URL" ] || exit 0
+
+if out=$(wget -q -T 90 -O - --header "X-API-Key: $STUBS_API_KEY" --header "Content-Type: application/json" \
+    --post-data '{}' "http://127.0.0.1:$PORT/admin/api/watch/run" 2>/dev/null); then
+  log "ok $out"
+else
+  log "no check this hour (another is still running, or the service did not answer)"
+fi
+exit 0
