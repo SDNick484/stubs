@@ -20,6 +20,11 @@ SVC_USER=stubs
 BACKUP_JOB=/etc/periodic/daily/stubs-backup
 OPS_CONF="${OPS_CONF:-/etc/conf.d/ops}"
 PORT="${STUBS_PORT:-8773}"
+# The MCP service (post-v1 #46): its own user (no database access, no home), venv and init script.
+MCP_USER=stubs-mcp
+MCP_VENV=/opt/stubs-mcp/venv
+MCP_INITD=/etc/init.d/stubs-mcp
+MCP_LOG=/var/log/stubs-mcp.log
 
 UNINSTALL=
 case "${1:-}" in
@@ -36,6 +41,10 @@ if [ -n "$UNINSTALL" ]; then
   rc-update del "$NAME" default >/dev/null 2>&1 || true
   rm -f "$INITD" "$BACKUP_JOB"
   rm -rf "$APP_DIR"
+  rc-service stubs-mcp stop >/dev/null 2>&1 || true
+  rc-update del stubs-mcp default >/dev/null 2>&1 || true
+  rm -f "$MCP_INITD"
+  rm -rf /opt/stubs-mcp
   echo "Removed the app, the service and the backup job. Kept $DATA_DIR, $CONF and $BACKUP_DIR."
   exit 0
 fi
@@ -53,6 +62,7 @@ echo "==> Installing packages"
 # sqlite is the sqlite3 command the nightly backup uses; the app needs only the py3-* packages.
 apk add --no-cache python3 py3-flask py3-gunicorn py3-jwt py3-cryptography sqlite >/dev/null
 
+[ -x "$MCP_INITD" ] && rc-service stubs-mcp stop >/dev/null 2>&1 || true
 [ -x "$INITD" ] && rc-service "$NAME" stop >/dev/null 2>&1 || true
 if netstat -ltn 2>/dev/null | awk '{print $4}' | grep -q ":$PORT\$"; then
   echo "Port $PORT is already in use by something else. Re-run with STUBS_PORT=<free port>."; exit 1
@@ -62,6 +72,9 @@ echo "==> Creating user and folders"
 # BusyBox adduser -S puts a new user in "nogroup" unless told otherwise, so make the app's own group first.
 grep -q "^$SVC_USER:" /etc/group || addgroup -S "$SVC_USER"
 id "$SVC_USER" >/dev/null 2>&1 || adduser -S -D -H -h "$DATA_DIR" -s /sbin/nologin -G "$SVC_USER" "$SVC_USER"
+# stubs-mcp: its own group and no home; it reads Stubs over HTTP and never opens $DATA_DIR (0750 stubs:stubs).
+grep -q "^$MCP_USER:" /etc/group || addgroup -S "$MCP_USER"
+id "$MCP_USER" >/dev/null 2>&1 || adduser -S -D -H -h /nonexistent -s /sbin/nologin -G "$MCP_USER" "$MCP_USER"
 mkdir -p "$APP_DIR" "$DATA_DIR/images" "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 
@@ -99,6 +112,15 @@ add_setting "$CONF" SETLISTFM_API_KEY "" "setlist.fm API key for the setlist pan
 add_setting "$CONF" GEOCODER_URL "https://nominatim.openstreetmap.org/search" "Nominatim search endpoint for venue coordinates"
 add_setting "$CONF" MUSICBRAINZ_URL "https://musicbrainz.org/ws/2" "MusicBrainz web service root for artist links"
 add_setting "$CONF" TILE_URL "https://tile.openstreetmap.org/{z}/{x}/{y}.png" "Map tiles (this host is allowed in the CSP)"
+# The MCP service (stubs-mcp, docs/mcp-setup.md): Claude reads the history and can send shows to the review screen.
+add_setting "$CONF" STUBS_URL "" "Where stubs-mcp reaches the app; empty = http://127.0.0.1:<PORT>"
+add_setting "$CONF" STUBS_MCP_WRITES none "none = the Claude connector only reads (with STUBS_READ_KEY); import = it can also send shows to the import review screen (with STUBS_API_KEY); nothing it sends is applied without you"
+add_setting "$CONF" MCP_HTTP_BIND 127.0.0.1 "Address stubs-mcp listens on (the MCP tunnel route points here)"
+add_setting "$CONF" MCP_HTTP_PORT 8774 "Port stubs-mcp listens on"
+add_setting "$CONF" MCP_HTTP_PATH /stubs/mcp "URL path of the MCP endpoint (the tunnel route's path is ^/stubs/)"
+add_setting "$CONF" MCP_PUBLIC_HOSTS "" "Public hostname of the MCP tunnel route, e.g. mcp.example.com (stubs-mcp needs it)"
+add_setting "$CONF" CF_ACCESS_AUD "" "AUD tag of the Access application on the MCP hostname, not CF_AUD (stubs-mcp needs it)"
+add_setting "$CONF" MCP_ALLOWED_EMAILS "" "Only these Access emails may use the MCP tools (comma separated); empty = anyone Access lets in"
 # Holds API keys, so root only: OpenRC runs as root and exports what the service needs.
 chmod 600 "$CONF"; chown root:root "$CONF"
 
@@ -147,6 +169,48 @@ start_pre() { checkpath -f -o stubs:stubs -m 0640 /var/log/stubs.log; }
 EOF
 chmod 755 "$INITD"
 
+cat > "$MCP_INITD" <<'EOF'
+#!/sbin/openrc-run
+name="stubs-mcp"
+description="Stubs MCP server (Streamable HTTP, behind Cloudflare Access)"
+# OpenRC runs this as root, so it can read the root-only config; the service user never reads it.
+[ -r /etc/conf.d/stubs ] && . /etc/conf.d/stubs
+: ${PORT:=8773}
+: ${STUBS_URL:=http://127.0.0.1:${PORT}}
+mcp_level() {  # mcp_level STUBS_MCP_WRITES -> none or import; mirrors mcp_server.write_level()
+  case "$(printf '%s' "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]')" in
+    import) echo import ;;
+    *) echo none ;;
+  esac
+}
+# Only what this service needs, and one Stubs key: the GET-only STUBS_READ_KEY at write level none, STUBS_API_KEY at
+# import. SETLISTFM_API_KEY, CF_AUD, ADMIN_EMAILS and the rest stay out of its environment.
+case "$(mcp_level "${STUBS_MCP_WRITES:-}")" in
+  import) unset STUBS_READ_KEY; export STUBS_API_KEY ;;
+  *) unset STUBS_API_KEY; export STUBS_READ_KEY ;;
+esac
+export STUBS_URL STUBS_MCP_WRITES MCP_HTTP_BIND MCP_HTTP_PORT MCP_HTTP_PATH MCP_PUBLIC_HOSTS CF_ACCESS_AUD MCP_ALLOWED_EMAILS CF_TEAM_DOMAIN
+supervisor="supervise-daemon"
+respawn_delay=5
+respawn_max=10
+respawn_period=600
+command="/opt/stubs-mcp/venv/bin/python"
+command_args="/opt/stubs/mcp_http.py"
+command_user="stubs-mcp:stubs-mcp"
+directory="/opt/stubs"
+output_log="/var/log/stubs-mcp.log"
+error_log="/var/log/stubs-mcp.log"
+depend() { need net stubs; after firewall; }
+start_pre() { checkpath -f -m 0640 -o stubs-mcp:stubs-mcp /var/log/stubs-mcp.log; }
+EOF
+chmod 755 "$MCP_INITD"
+
+# The MCP stack is not packaged for Alpine (no py3-mcp), so this one service gets a pip venv (requirements-mcp.txt).
+# A pip or network failure only skips stubs-mcp; the app still installs and starts.
+echo "==> Installing the MCP service's venv"
+# shellcheck disable=SC2015  # deliberate: any failure in the chain (including MCP_OK=1) falls through to the warning
+apk add --no-cache py3-pip >/dev/null 2>&1 && python3 -m venv "$MCP_VENV" && "$MCP_VENV/bin/pip" install --no-cache-dir -q -r "$APP_DIR/requirements-mcp.txt" && MCP_OK=1 || { MCP_OK=0; echo "    WARNING: could not set up $MCP_VENV (needs PyPI); stubs-mcp will not start. Re-run this installer to retry."; }
+
 echo "==> Installing the nightly backup"
 mkdir -p /etc/periodic/daily
 install -m 755 "$APP_DIR/ops/stubs-backup" "$BACKUP_JOB"
@@ -169,6 +233,43 @@ done
 echo "==> Taking a first backup"
 "$BACKUP_JOB" || echo "    (backup reported a problem; see /var/log/stubs-backup.log)"
 
+# stubs-mcp starts only once it is configured, and only a service that answers goes into the runlevel and the health
+# checks (an unconfigured one would be flagged, and respawned at boot, for nothing).
+mcp_level() {  # mcp_level STUBS_MCP_WRITES -> none or import; mirrors mcp_server.write_level()
+  case "$(printf '%s' "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]')" in
+    import) echo import ;;
+    *) echo none ;;
+  esac
+}
+mcp_key_name() {  # the key stubs-mcp holds at its write level (the init script's rule)
+  case "$(mcp_level "$(conf_val STUBS_MCP_WRITES)")" in
+    import) echo STUBS_API_KEY ;;
+    *) echo STUBS_READ_KEY ;;
+  esac
+}
+MCP_BIND=$(conf_val MCP_HTTP_BIND); MCP_BIND=${MCP_BIND:-127.0.0.1}
+MCP_PORT=$(conf_val MCP_HTTP_PORT); MCP_PORT=${MCP_PORT:-8774}
+MCP_STATE=off
+if [ "${MCP_OK:-0}" = 1 ] && [ -n "$(conf_val CF_ACCESS_AUD)" ] && [ -n "$(conf_val MCP_PUBLIC_HOSTS)" ] && [ -n "$(conf_val "$(mcp_key_name)")" ]; then
+  if netstat -ltn 2>/dev/null | awk '{print $4}' | grep -q ":$MCP_PORT\$"; then
+    MCP_STATE=busy
+  else
+    echo "==> Starting stubs-mcp"
+    rc-service stubs-mcp start || true
+    MCP_STATE=failed
+    i=0
+    while [ "$i" -lt 20 ]; do
+      wget -qO- "http://$MCP_BIND:$MCP_PORT/healthz" >/dev/null 2>&1 && { MCP_STATE=up; break; }
+      i=$((i + 1)); sleep 1
+    done
+    [ "$MCP_STATE" = up ] || { echo "    stubs-mcp didn't answer; see $MCP_LOG"; tail -n 10 "$MCP_LOG" 2>/dev/null || true; }
+  fi
+fi
+if [ "$MCP_STATE" = up ]; then
+  rc-update add stubs-mcp default >/dev/null 2>&1 || true
+  add_health_check "Stubs MCP|http://$MCP_BIND:$MCP_PORT/healthz|stubs-mcp" stubs-mcp
+fi
+
 echo
 echo "Stubs is running on 127.0.0.1:$PORT (loopback only)."
 [ -n "${ADDED:-}" ] && echo "Settings added to $CONF:$ADDED"
@@ -180,4 +281,17 @@ done
 echo "  - Tunnel: route your concerts hostname to http://127.0.0.1:$PORT"
 echo "  - Cloudflare Access: an application on <your concerts host>/admin that lets in the emails in ADMIN_EMAILS"
 echo "Config: $CONF   Data: $DATA_DIR   Backups: $BACKUP_DIR   Log: $LOG"
+case "$MCP_STATE" in
+  up) echo "Stubs MCP is running (write level: $(mcp_level "$(conf_val STUBS_MCP_WRITES)")): http://$MCP_BIND:$MCP_PORT/healthz   Log: $MCP_LOG" ;;
+  failed) echo "Stubs MCP did not come up: see $MCP_LOG" ;;
+  busy) echo "Stubs MCP was NOT started: port $MCP_PORT is in use. Set a free MCP_HTTP_PORT in $CONF and re-run this installer." ;;
+  *)
+    echo "Stubs MCP (the Claude connector, docs/mcp-setup.md) was NOT started:"
+    [ "${MCP_OK:-0}" = 1 ] || echo "  - The MCP venv could not be built (see the warning above); re-run when PyPI is reachable"
+    for k in MCP_PUBLIC_HOSTS CF_ACCESS_AUD "$(mcp_key_name)"; do
+      [ -n "$(conf_val "$k")" ] || echo "  - Set $k in $CONF (vim $CONF)"
+    done
+    echo "  - Then re-run this installer, or: rc-service stubs-mcp start && rc-update add stubs-mcp default"
+    ;;
+esac
 exit 0
