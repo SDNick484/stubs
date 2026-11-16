@@ -1,6 +1,6 @@
 """Spec section 6: nothing editor-only reaches a public reader. Seeds one of everything editor-only (an upcoming show,
 a note, a likely flag, a source, a companion, a rating, a poster, a stub, an import, a stored setlist's source, a
-stored setlist on the upcoming show), each carrying a marker string,
+stored setlist on the upcoming show, a watch-only artist, a watch area and a sighting), each carrying a marker string,
 then walks every GET rule under /api/ in app.url_map as an anonymous client and asserts no marker, and no editor-only
 key, appears in any body.
 
@@ -18,7 +18,8 @@ import settings
 from conftest import mk_artist, mk_show, mk_venue
 
 MARKERS = ("SECRET-UPCOMING", "SECRET-NOTE", "SECRET-CONF", "SECRET-SOURCE", "SECRET-PERSON", "secret-poster",
-           "secret-stub", "SECRET-IMPORT", "SECRET-SETLIST", "SECRET-MBNOTE")
+           "secret-stub", "SECRET-IMPORT", "SECRET-SETLIST", "SECRET-MBNOTE",
+           "SECRET-WATCH", "SECRET-AREA", "SECRET-SIGHTING")
 UPCOMING_YEAR = "2099"  # the upcoming show's year: no public page may list it, not even as a year with 0 shows
 EDITOR_KEYS = {"notes", "rating", "confidence", "confidence_note", "sources", "version", "source_label", "source_url",
                "mb_disambiguation"}
@@ -26,7 +27,7 @@ EDITOR_KEYS = {"notes", "rating", "confidence", "confidence_note", "sources", "v
 # Path parameter name -> the values to try, from the `seeded` namespace.
 PARAM_SAMPLES = {
     "show_id": lambda s: [s.attended, s.upcoming],
-    "artist_id": lambda s: [s.artist, s.opener],
+    "artist_id": lambda s: [s.artist, s.opener, s.watch_only],
     "venue_id": lambda s: [s.venue],
     "song_id": lambda s: [s.song, s.hidden_song],
     "year": lambda s: [2005, 2099],
@@ -79,8 +80,18 @@ def seeded(con):
     b = con.execute("INSERT INTO import_batch (origin, label) VALUES ('csv', 'SECRET-IMPORT batch')").lastrowid
     con.execute("INSERT INTO import_row (batch_id, row_no, raw, parsed, verdict, include) "
                 "VALUES (?, 1, '{\"artist\": \"SECRET-IMPORT\"}', '{\"billing\": \"SECRET-IMPORT\"}', 'new', 1)", (b,))
+    # Concert watch (#47): a band he has never seen and only watches, where he lives, and a concert a source found
+    # (for it and for an artist he has seen).
+    watch_only = mk_artist(con, "SECRET-WATCH Cold Harbor")
+    con.execute("INSERT INTO watch (artist_id, origin, anywhere) VALUES (?, 'manual', 1)", (watch_only,))
+    con.execute("INSERT INTO watch (artist_id, origin) VALUES (?, 'history')", (artist,))
+    con.execute("INSERT INTO watch_area (name, lat, lon, radius_km) VALUES ('SECRET-AREA Home', 49.2, -123.1, 100)")
+    for who, event in ((watch_only, "SECRET-SIGHTING-1"), (artist, "SECRET-SIGHTING-2")):
+        con.execute("INSERT INTO sighting (artist_id, source, source_event_id, date, venue, city, url, note) "
+                    "VALUES (?, 'ticketmaster', ?, '2098-03-14', 'SECRET-SIGHTING Hall', 'Vancouver', "
+                    "'https://concerts.example.com/SECRET-SIGHTING', 'SECRET-SIGHTING note')", (who, event))
     return types.SimpleNamespace(venue=v, attended=attended, upcoming=upcoming, artist=artist, opener=opener,
-                                 song=song, hidden_song=hidden)
+                                 song=song, hidden_song=hidden, watch_only=watch_only)
 
 
 def public_rules():

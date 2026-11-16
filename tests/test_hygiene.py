@@ -26,7 +26,9 @@ IPV4 = re.compile(r"(?<![\d.])(\d{1,3}(?:\.\d{1,3}){3})(?![\d.])")
 # www.w3.org is the SVG namespace name static/icon.svg must carry (an identifier, never fetched).
 ALLOWED = ("example.com", "example.org", "noreply.github.com", "github.com", "githubusercontent.com", "cloudflare.com",
            "cloudflareaccess.com", "openstreetmap.org", "setlist.fm", "musicbrainz.org", "schema.org", "www.w3.org", "leafletjs.com",
-           "claude.com", "claude.ai", "127.0.0.1", "localhost")
+           "claude.com", "claude.ai", "127.0.0.1", "localhost",
+           # concert watch (post-v1 #47): Ticketmaster's Discovery API, Last.fm's API and site, the ntfy service
+           "ticketmaster.com", "last.fm", "audioscrobbler.com", "ntfy.sh")
 # 192.168.1.100 is the spec's invented LAN host; 10.0.0.5, 169.254.169.254 and 0.0.0.0 are SSRF test targets, and so
 # are 172.16.0.1 and 100.64.0.1 (the first address of the 172.16/12 private and 100.64/10 shared ranges, which the URL
 # fetcher's guard must refuse: tests/test_fetchurl.py, Task 19).

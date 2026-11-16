@@ -1,0 +1,63 @@
+{
+  "_embedded": {
+    "events": [
+      {
+        "name": "Marigold Static", "type": "event", "id": "Z7MS0001", "locale": "en-us",
+        "url": "https://www.ticketmaster.com/event/Z7MS0001",
+        "sales": {"public": {"startDateTime": "2026-11-20T18:00:00Z", "endDateTime": "2027-03-15T03:00:00Z"}},
+        "dates": {"start": {"localDate": "2027-03-14", "localTime": "20:00:00"}, "status": {"code": "onsale"}},
+        "_embedded": {
+          "venues": [{"name": "Old Mill Theatre", "type": "venue", "id": "KovZ0001",
+                      "city": {"name": "Portland"}, "state": {"name": "Oregon", "stateCode": "OR"},
+                      "country": {"name": "United States Of America", "countryCode": "US"},
+                      "location": {"longitude": "-122.6000", "latitude": "45.5000"}}],
+          "attractions": [{"name": "Marigold Static", "type": "attraction", "id": "K8vZ0001",
+                           "externalLinks": {"homepage": [{"url": "https://marigoldstatic.example.com/"}]}}]
+        }
+      },
+      {
+        "name": "Marigold Static with The Paper Lanterns", "type": "event", "id": "Z7MS0002", "locale": "en-us",
+        "url": "https://www.ticketmaster.com/event/Z7MS0002",
+        "sales": {"public": {"startDateTime": "2026-12-01T18:00:00Z"}},
+        "dates": {"start": {"localDate": "2027-04-02"}, "status": {"code": "onsale"}},
+        "_embedded": {
+          "venues": [{"name": "The Bellwether", "id": "KovZ0002", "city": {"name": "Oakland"},
+                      "state": {"stateCode": "CA"}, "country": {"countryCode": "US"},
+                      "location": {"longitude": "-122.2700", "latitude": "37.8000"}}],
+          "attractions": [{"name": "MARIGOLD  STATIC", "id": "K8vZ0001"}, {"name": "The Paper Lanterns", "id": "K8vZ0002"}]
+        }
+      },
+      {
+        "name": "Marigold Statics: a tribute", "type": "event", "id": "Z7MS0003",
+        "url": "https://www.ticketmaster.com/event/Z7MS0003",
+        "dates": {"start": {"localDate": "2027-04-10"}, "status": {"code": "onsale"}},
+        "_embedded": {
+          "venues": [{"name": "The Bellwether", "city": {"name": "Oakland"}, "state": {"stateCode": "CA"},
+                      "country": {"countryCode": "US"}, "location": {"longitude": "-122.2700", "latitude": "37.8000"}}],
+          "attractions": [{"name": "Marigold Statics", "id": "K8vZ0099"}]
+        }
+      },
+      {
+        "name": "Marigold Static", "type": "event", "id": "Z7MS0004",
+        "url": "https://www.ticketmaster.com/event/Z7MS0004",
+        "dates": {"start": {"localDate": "2027-05-01"}, "status": {"code": "onsale"}},
+        "_embedded": {
+          "venues": [{"name": "Granite Hall", "city": {"name": "Oakland"}, "state": {"stateCode": "CA"},
+                      "country": {"countryCode": "US"}}],
+          "attractions": [{"name": "Marigold Static", "id": "K8vZ0001"}]
+        }
+      },
+      {
+        "name": "Marigold Static", "type": "event", "id": "Z7MS0005",
+        "url": "https://www.ticketmaster.com/event/Z7MS0005",
+        "dates": {"start": {"localDate": "2027-06-01"}, "status": {"code": "cancelled"}},
+        "_embedded": {
+          "venues": [{"name": "Old Mill Theatre", "city": {"name": "Portland"}, "state": {"stateCode": "OR"},
+                      "country": {"countryCode": "US"}, "location": {"longitude": "-122.6000", "latitude": "45.5000"}}],
+          "attractions": [{"name": "Marigold Static", "id": "K8vZ0001"}]
+        }
+      }
+    ]
+  },
+  "page": {"size": 100, "totalElements": 5, "totalPages": 1, "number": 0}
+}

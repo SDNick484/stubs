@@ -1035,6 +1035,146 @@ def mb_unlink(artist_id):
     return jsonify(musicbrainz.unlink(db(), artist_id))
 
 
+# ==== Post-v1 #47: concert watch
+# Upcoming concerts by bands the owner watches (watch.py), pushed by notify.py; all editor-only. The server makes every
+# outside call (Ticketmaster, Last.fm, Nominatim, the notification URL): the browser's connect-src is 'self'. Keys and
+# WATCH_NOTIFY_URL never reach a response. ops/stubs-watch POSTs /admin/api/watch/run hourly with the write key.
+import time as _t47_time  # noqa: E402
+
+import watch  # noqa: E402
+from common import today as _t47_today  # noqa: E402
+from db import transaction as _t47_transaction  # noqa: E402
+
+
+def _t47_now():
+    return f"{_t47_today()} {_t47_time.strftime('%H:%M:%S')}"
+
+
+@app.get("/admin/api/watch")
+@editor_required
+def watch_page():
+    """-> {"watched": [...], "areas": [...], "sources": {"ticketmaster", "lastfm", "email", "notify"}}."""
+    con = db()
+    return jsonify(watched=watch.watched(con), areas=watch.list_areas(con), sources=watch.sources())
+
+
+@app.get("/admin/api/watch/suggestions")
+@editor_required
+def watch_suggestions():
+    """?min_times=N (default 1) -> {"artists": [{"artist_id", "name", "times", "last"}]} from attended shows."""
+    raw = request.args.get("min_times", "1")
+    if not raw.isdigit() or int(raw) < 1:
+        raise ApiError(400, "min_times must be a whole number of at least 1.")
+    return jsonify(artists=watch.suggest_from_history(db(), int(raw)))
+
+
+@app.get("/admin/api/watch/lastfm")
+@editor_required
+def watch_lastfm():
+    """-> {"enabled", "artists": [{"name", "playcount", "artist_id", "seen", "url"}]}; 502 when Last.fm fails."""
+    return jsonify(enabled=watch.lastfm.enabled(), artists=watch.suggest_from_lastfm(db()))
+
+
+@app.post("/admin/api/watch")
+@editor_required
+def watch_add():
+    """{"name"} (made when unknown) or {"artist_id"} or {"artist_ids": [...]}, with "origin" (history, manual, lastfm;
+    default manual) and "anywhere" -> 201 {"artist_ids": [...]}. Watching an artist already watched changes nothing."""
+    data = json_body()
+    origin = data.get("origin", "manual")
+    anywhere = data.get("anywhere", False)
+    if not isinstance(anywhere, bool):
+        raise ApiError(400, "anywhere must be true or false.")
+    con = db()
+    if "artist_ids" in data:
+        ids = data["artist_ids"]
+        if not isinstance(ids, list) or not ids or len(ids) > 1000 or \
+                not all(type(i) is int and i > 0 for i in ids):
+            raise ApiError(400, "artist_ids must be a list of artist ids.")
+        with _t47_transaction(con):
+            out = [watch.watch_artist(con, i, origin, anywhere) for i in ids]
+    elif "artist_id" in data:
+        aid = data["artist_id"]
+        if type(aid) is not int or aid < 1:
+            raise ApiError(400, "artist_id must be an artist id.")
+        out = [watch.watch_artist(con, aid, origin, anywhere)]
+    else:
+        out = [watch.add_watch(con, text(data, "name", watch.LEN["name"], required=True), anywhere, origin)]
+    return jsonify(artist_ids=out), 201
+
+
+@app.patch("/admin/api/watch/<int:artist_id>")
+@editor_required
+def watch_update(artist_id):
+    """{"anywhere"?, "muted"?} -> the artist's watch (as GET .../watch/artists/<id>)."""
+    data = json_body()
+    return jsonify(watch.update_watch(db(), artist_id, data.get("anywhere"), data.get("muted")))
+
+
+@app.delete("/admin/api/watch/<int:artist_id>")
+@editor_required
+def watch_remove(artist_id):
+    watch.remove_watch(db(), artist_id)
+    return jsonify(ok=True)
+
+
+@app.get("/admin/api/watch/artists/<int:artist_id>")
+@editor_required
+def watch_artist_view(artist_id):
+    """The artist page's Watch / Watching toggle and that artist's sightings."""
+    return jsonify(watch.artist_watch(db(), artist_id))
+
+
+@app.post("/admin/api/watch/areas")
+@editor_required
+def watch_area_add():
+    """{"name", "lat", "lon", "radius_km"} -> 201 the area."""
+    return jsonify(watch.add_area(db(), json_body())), 201
+
+
+@app.delete("/admin/api/watch/areas/<int:area_id>")
+@editor_required
+def watch_area_remove(area_id):
+    watch.remove_area(db(), area_id)
+    return jsonify(ok=True)
+
+
+@app.get("/admin/api/watch/sightings")
+@editor_required
+def watch_sightings():
+    """-> {"sightings": [...]}: the new ones, soonest first, each with "have" (a show id: you have tickets)."""
+    return jsonify(sightings=watch.sightings(db()))
+
+
+@app.post("/admin/api/watch/sightings")
+@editor_required
+def watch_file_sightings():
+    """The email source: {"source": "email", "events": [{"artist", "date", "venue", "city", "region"?, "country"?,
+    "url"?, "note"?}]} (1 to 25) -> {"new", "seen", "skipped": [{"index", "artist", "reason"}]}."""
+    return jsonify(watch.file_email(db(), json_body(), _t47_today(), _t47_now()))
+
+
+@app.post("/admin/api/watch/sightings/<int:sighting_id>/add")
+@editor_required
+def watch_sighting_add(sighting_id):
+    """Add as upcoming -> 201 {"show_id"}; 409 unless the sighting is new."""
+    return jsonify(show_id=watch.add_sighting(db(), sighting_id)), 201
+
+
+@app.post("/admin/api/watch/sightings/<int:sighting_id>/dismiss")
+@editor_required
+def watch_sighting_dismiss(sighting_id):
+    watch.dismiss(db(), sighting_id)
+    return jsonify(ok=True)
+
+
+@app.post("/admin/api/watch/run")
+@editor_required
+def watch_run():
+    """One check (watch.run) -> {"checked", "new", "notified"}; 409 while another is going."""
+    return jsonify(watch.run(db(), _t47_now()))
+
+
 init_db()
 
 if __name__ == "__main__":

@@ -1,0 +1,13 @@
+{
+  "topartists": {
+    "artist": [
+      {"name": "Marigold Static", "playcount": "412", "mbid": "44444444-4444-4444-8444-444444444444",
+       "url": "https://www.last.fm/music/Marigold+Static", "@attr": {"rank": "1"}},
+      {"name": "Cold Harbor", "playcount": "300", "mbid": "", "url": "https://www.last.fm/music/Cold+Harbor",
+       "@attr": {"rank": "2"}},
+      {"name": "Velvet Arcade", "playcount": "120", "mbid": "", "url": "https://www.last.fm/music/Velvet+Arcade",
+       "@attr": {"rank": "3"}}
+    ],
+    "@attr": {"user": "riley-listens", "totalPages": "1", "page": "1", "perPage": "50", "total": "3"}
+  }
+}

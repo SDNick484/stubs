@@ -49,7 +49,9 @@ def test_every_setting_has_env_example_and_add_setting():
     keys = _settings_keys()
     assert {"PORT", "DATA_DIR", "CF_TEAM_DOMAIN", "CF_AUD", "ADMIN_EMAILS", "LAN_EDIT", "LAN_HOSTS", "PUBLIC_VIEW",
             "PUBLIC_POSTERS", "STUBS_API_KEY", "STUBS_READ_KEY", "SETLISTFM_API_KEY", "GEOCODER_URL", "MUSICBRAINZ_URL",
-            "TILE_URL"} | MCP_KEYS == keys
+            "TILE_URL",
+            # post-v1 #47: concert watch
+            "TICKETMASTER_API_KEY", "LASTFM_API_KEY", "LASTFM_USER", "WATCH_NOTIFY_URL", "WATCH_NOTIFY_FORMAT"} | MCP_KEYS == keys
     env_example, head = _read(".env.example"), _read("installer/setup-head.sh")
     exports = re.search(r"^export (PORT .*)$", head, re.M)
     assert exports, "the init script exports the settings on one `export PORT ...` line"

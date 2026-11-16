@@ -121,6 +121,11 @@ add_setting "$CONF" MCP_HTTP_PATH /stubs/mcp "URL path of the MCP endpoint (the 
 add_setting "$CONF" MCP_PUBLIC_HOSTS "" "Public hostname of the MCP tunnel route, e.g. mcp.example.com (stubs-mcp needs it)"
 add_setting "$CONF" CF_ACCESS_AUD "" "AUD tag of the Access application on the MCP hostname, not CF_AUD (stubs-mcp needs it)"
 add_setting "$CONF" MCP_ALLOWED_EMAILS "" "Only these Access emails may use the MCP tools (comma separated); empty = anyone Access lets in"
+add_setting "$CONF" TICKETMASTER_API_KEY "" "Ticketmaster Discovery API key for concert watch; empty = that source off"
+add_setting "$CONF" LASTFM_API_KEY "" "Last.fm API key: suggest artists to watch from LASTFM_USER's top artists"
+add_setting "$CONF" LASTFM_USER "" "Last.fm user whose public top artists are suggested"
+add_setting "$CONF" WATCH_NOTIFY_URL "" "Where new concerts are pushed (ntfy topic URL or webhook); empty = no push. A secret"
+add_setting "$CONF" WATCH_NOTIFY_FORMAT ntfy "ntfy (plain text, Title and Click headers) or json"
 # Holds API keys, so root only: OpenRC runs as root and exports what the service needs.
 chmod 600 "$CONF"; chown root:root "$CONF"
 
@@ -156,7 +161,7 @@ description="Stubs concert history (Flask + gunicorn, loopback only)"
 : ${PORT:=8773}
 : ${DATA_DIR:=/var/lib/stubs}
 export HOME=/var/lib/stubs  # newer gunicorn keeps a small control socket under $HOME
-export PORT DATA_DIR CF_TEAM_DOMAIN CF_AUD ADMIN_EMAILS LAN_EDIT LAN_HOSTS PUBLIC_VIEW PUBLIC_POSTERS STUBS_API_KEY STUBS_READ_KEY SETLISTFM_API_KEY GEOCODER_URL MUSICBRAINZ_URL TILE_URL
+export PORT DATA_DIR CF_TEAM_DOMAIN CF_AUD ADMIN_EMAILS LAN_EDIT LAN_HOSTS PUBLIC_VIEW PUBLIC_POSTERS STUBS_API_KEY STUBS_READ_KEY SETLISTFM_API_KEY GEOCODER_URL MUSICBRAINZ_URL TILE_URL TICKETMASTER_API_KEY LASTFM_API_KEY LASTFM_USER WATCH_NOTIFY_URL WATCH_NOTIFY_FORMAT
 supervisor="supervise-daemon"
 respawn_delay=5
 respawn_max=10
